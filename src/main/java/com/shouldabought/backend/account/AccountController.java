@@ -6,9 +6,11 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import com.shouldabought.backend.position.PositionResponse;
 import com.shouldabought.backend.transaction.Transaction;
 import com.shouldabought.backend.transaction.TransactionBuyRequest;
 import com.shouldabought.backend.transaction.TransactionResponse;
+import com.shouldabought.backend.transaction.TransactionSellRequest;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -46,8 +48,26 @@ public class AccountController {
 				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
 	}
 
+	@PostMapping("/{id}/sell")
+	public TransactionResponse sellStock(@PathVariable Long id, @RequestBody TransactionSellRequest request) {
+		Transaction transaction = accountService.sellStock(id, request.symbol(), request.quantity(), request.price());
+
+		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
+				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
+	}
+
 	@GetMapping("/{id}/transactions")
 	public List<TransactionResponse> getTransactions(@PathVariable Long id) {
 		return accountService.getTransactions(id);
+	}
+
+	@GetMapping("/{id}/positions")
+	public List<PositionResponse> getPositions(@PathVariable Long id) {
+		return accountService.getPositions(id);
+	}
+
+	@GetMapping("/{id}/balance")
+	public AccountBalanceResponse getBalance(@PathVariable Long id) {
+		return accountService.getBalance(id);
 	}
 }
