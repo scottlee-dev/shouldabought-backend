@@ -42,7 +42,7 @@ public class AccountController {
 
 	@PostMapping("/{id}/buy")
 	public TransactionResponse buyStock(@PathVariable Long id, @RequestBody TransactionBuyRequest request) {
-		Transaction transaction = accountService.buyStock(id, request.symbol(), request.quantity(), request.price());
+		Transaction transaction = accountService.buyStock(id, request.symbol(), request.quantity(), request.cashAmount());
 
 		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
 				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
@@ -50,7 +50,7 @@ public class AccountController {
 
 	@PostMapping("/{id}/sell")
 	public TransactionResponse sellStock(@PathVariable Long id, @RequestBody TransactionSellRequest request) {
-		Transaction transaction = accountService.sellStock(id, request.symbol(), request.quantity(), request.price());
+		Transaction transaction = accountService.sellStock(id, request.symbol(), request.quantity(),request.cashAmount());
 
 		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
 				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());

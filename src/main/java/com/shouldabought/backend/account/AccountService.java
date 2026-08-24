@@ -1,6 +1,7 @@
 package com.shouldabought.backend.account;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,11 +47,59 @@ public class AccountService {
 	}
 
 	@Transactional
-	public Transaction sellStock(Long accountId, String symbol, BigDecimal quantity, BigDecimal price) {
+	public Transaction sellStock(
+			Long accountId,
+			String symbol,
+			BigDecimal quantity,
+			BigDecimal cashAmount
+	) {
 		Account account = accountRepository.findById(accountId)
 				.orElseThrow(() -> new RuntimeException("Account not found"));
 
-		List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtAsc(accountId);
+		StockPrice stockPrice = stockPriceRepository
+				.findBySymbol(symbol)
+				.orElseThrow(() ->
+						new RuntimeException("Price not found for " + symbol));
+
+		BigDecimal price = stockPrice.getPrice();
+
+		// Must provide exactly one of quantity or cashAmount
+		if (quantity != null && cashAmount != null) {
+			throw new RuntimeException(
+					"Provide either quantity or cashAmount, not both");
+		}
+
+		if (quantity == null && cashAmount == null) {
+			throw new RuntimeException(
+					"Either quantity or cashAmount is required");
+		}
+
+		// Calculate how many shares are being sold
+		if (cashAmount != null) {
+
+			if (cashAmount.compareTo(BigDecimal.ZERO) <= 0) {
+				throw new RuntimeException(
+						"Cash amount must be greater than zero");
+			}
+
+			quantity = cashAmount.divide(
+					price,
+					6,
+					RoundingMode.DOWN
+			);
+
+		} else {
+
+			if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+				throw new RuntimeException(
+						"Quantity must be greater than zero");
+			}
+		}
+
+		// Calculate current holdings
+		List<Transaction> transactions =
+				transactionRepository
+						.findByAccountIdOrderByCreatedAtAsc(accountId);
 
 		BigDecimal currentQuantity = BigDecimal.ZERO;
 
@@ -61,35 +110,75 @@ public class AccountService {
 			}
 
 			if (transaction.getType() == TransactionType.BUY) {
-				currentQuantity = currentQuantity.add(transaction.getQuantity());
+				currentQuantity =
+						currentQuantity.add(transaction.getQuantity());
 			}
 
 			if (transaction.getType() == TransactionType.SELL) {
-				currentQuantity = currentQuantity.subtract(transaction.getQuantity());
+				currentQuantity =
+						currentQuantity.subtract(transaction.getQuantity());
 			}
 		}
 
+		// Check whether the account owns enough shares
 		if (currentQuantity.compareTo(quantity) < 0) {
 			throw new RuntimeException("Insufficient shares");
 		}
 
-		BigDecimal totalProceeds = quantity.multiply(price);
+		BigDecimal totalProceeds =
+				quantity.multiply(price);
 
 		account.increaseCash(totalProceeds);
 
 		accountRepository.save(account);
 
-		Transaction transaction = new Transaction(account, TransactionType.SELL, totalProceeds, symbol, quantity,
-				price);
+		Transaction transaction = new Transaction(
+				account,
+				TransactionType.SELL,
+				totalProceeds,
+				symbol,
+				quantity,
+				price
+		);
 
 		return transactionRepository.save(transaction);
 	}
-
 	@Transactional
-	public Transaction buyStock(Long accountId, String symbol, BigDecimal quantity, BigDecimal price) {
+	public Transaction buyStock(Long accountId, String symbol, BigDecimal quantity, BigDecimal cashAmount) {
 		Account account = accountRepository.findById(accountId)
 				.orElseThrow(() -> new RuntimeException("Account not found"));
-		BigDecimal totalCost = quantity.multiply(price);
+
+		StockPrice stockPrice = stockPriceRepository.findBySymbol(symbol)
+				.orElseThrow(() -> new RuntimeException("Price not found for " + symbol));
+
+		BigDecimal price = stockPrice.getPrice();
+
+		// Must provide exactly one of quantity or cashAmount
+		if (quantity != null && cashAmount != null) {
+			throw new RuntimeException("Provide either quantity or cashAmount, not both");
+		}
+
+		if (quantity == null && cashAmount == null) {
+			throw new RuntimeException("Either quantity or cashAmount is required");
+		}
+
+		BigDecimal totalCost;
+
+		if (cashAmount != null) {
+			if (cashAmount.compareTo(BigDecimal.ZERO) <= 0) {
+				throw new RuntimeException("Cash amount must be greater than zero");
+			}
+
+			totalCost = cashAmount;
+			quantity = cashAmount.divide(price, 6, RoundingMode.DOWN);
+
+		} else {
+			if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+				throw new RuntimeException("Quantity must be greater than zero");
+			}
+
+			totalCost = quantity.multiply(price);
+		}
 
 		if (account.getCash().compareTo(totalCost) < 0) {
 			throw new RuntimeException("Insufficient cash");

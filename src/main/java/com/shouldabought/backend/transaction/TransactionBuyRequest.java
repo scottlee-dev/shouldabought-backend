@@ -2,5 +2,5 @@ package com.shouldabought.backend.transaction;
 
 import java.math.BigDecimal;
 
-public record TransactionBuyRequest(String symbol, BigDecimal quantity, BigDecimal price) {
+public record TransactionBuyRequest(String symbol, BigDecimal quantity, BigDecimal cashAmount) {
 }

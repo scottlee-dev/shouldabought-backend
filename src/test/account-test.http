@@ -1,4 +1,9 @@
-### 1. Create Account (Initial Deposit: $25,000.00)
+
+
+
+
+### 1. Create Account
+# Initial Deposit: $25,000.00
 POST http://localhost:8080/api/accounts
 Content-Type: application/json
 
@@ -7,75 +12,108 @@ Content-Type: application/json
   "initialCash": 25000.00
 }
 
-### 2. First Buy AAPL (10 shares * $150.00 = $1,500.00)
+### 2. Buy AAPL
+# 10 shares @ $150.00 = $1,500.00
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "quantity": 10,
-  "price": 150.00
+  "quantity": 10
 }
 
-### 3. Second Buy AAPL (10 shares * $150.00 = $1,500.00)
+
+### 3. Buy AAPL Again
+# 10 shares @ $150.00 = $1,500.00
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "quantity": 10,
-  "price": 150.00
+  "quantity": 10
 }
 
-### 4. Buy TSLA (10 shares * $200.00 = $2,000.00)
+
+### 4. Buy TSLA
+# 10 shares @ $200.00 = $2,000.00
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "TSLA",
-  "quantity": 10,
+  "quantity": 10
+}
+
+
+### 5. Get Account Positions
+# Expected: AAPL = 20 shares, TSLA = 10 shares
+GET http://localhost:8080/api/accounts/1/positions
+
+
+### 6. Set Market Price - AAPL
+# Current Market Price: $230.00
+POST http://localhost:8080/api/market/prices
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "price": 150.00
+}
+
+
+### 7. Set Market Price - TSLA
+# Current Market Price: $340.00
+POST http://localhost:8080/api/market/prices
+Content-Type: application/json
+
+{
+  "symbol": "TSLA",
   "price": 200.00
 }
 
 
-### 5. Get Account Positions (Verify AAPL: 20, TSLA: 10)
-GET http://localhost:8080/api/accounts/1/positions
-
-
-
-### 6. Set Market Price - AAPL ($230.00)
-POST http://localhost:8080/api/market/prices
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "price": 230.00
-}
-
-
-
-### 7. Set Market Price - TSLA ($340.00)
-POST http://localhost:8080/api/market/prices
-Content-Type: application/json
-
-{
-  "symbol": "TSLA",
-  "price": 340.00
-}
-
-### 5. Get Account Positions (Verify AAPL: 20, TSLA: 10)
+### 8. Get Account Balance
+# Expected:
+# Cash = $20,000.00
+# AAPL = 20 × $230 = $4,600.00
+# TSLA = 10 × $340 = $3,400.00
+# Total Balance = $28,000.00
 GET http://localhost:8080/api/accounts/1/balance
 
-### 8.Test sell
+
+### 9. Sell AAPL by Quantity
+# Sell 5 shares @ current market price
 POST http://localhost:8080/api/accounts/1/sell
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "quantity": 5,
-  "price": 230
+  "quantity": 5
 }
 
 
-### 5. Get Account Positions (Verify AAPL: 20, TSLA: 10)
+### 10. Get Account Positions
+# Expected: AAPL = 15 shares, TSLA = 10 shares
 GET http://localhost:8080/api/accounts/1/positions
+
+
+### 11. Buy AAPL by Dollar Amount
+# Buy $1,000 worth of AAPL at the current market price
+POST http://localhost:8080/api/accounts/1/buy
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "cashAmount": 1000
+}
+
+
+### 12. Sell AAPL by Dollar Amount
+# Sell $1,000 worth of AAPL at the current market price
+POST http://localhost:8080/api/accounts/1/sell
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "cashAmount": 1000
+}
