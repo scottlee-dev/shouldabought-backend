@@ -70,4 +70,8 @@ public class AccountController {
 	public AccountBalanceResponse getBalance(@PathVariable Long id) {
 		return accountService.getBalance(id);
 	}
+	@GetMapping("/{id}/portfolio")
+	public PortfolioResponse getPortfolio(@PathVariable Long id) {
+		return accountService.getPortfolio(id);
+	}
 }

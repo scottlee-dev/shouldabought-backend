@@ -1,10 +1,11 @@
 package com.shouldabought.backend.transaction;
 
-import com.shouldabought.backend.account.Account;
-import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
+import com.shouldabought.backend.account.Account;
+
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "transactions")
@@ -28,10 +29,10 @@ public class Transaction {
 	@Column(length = 10)
 	private String symbol;
 
-	@Column(precision = 19, scale = 6)
+	@Column(precision = 19, scale = 12)
 	private BigDecimal quantity;
 
-	@Column(precision = 19, scale = 6)
+	@Column(precision = 19, scale = 8)
 	private BigDecimal price;
 
 	@Column(nullable = false)
@@ -41,11 +42,7 @@ public class Transaction {
 	}
 
 	// DEPOSIT / WITHDRAW / etc.
-	public Transaction(
-			Account account,
-			TransactionType type,
-			BigDecimal amount
-	) {
+	public Transaction(Account account, TransactionType type, BigDecimal amount) {
 		this.account = account;
 		this.type = type;
 		this.amount = amount;
@@ -53,14 +50,8 @@ public class Transaction {
 	}
 
 	// BUY / SELL
-	public Transaction(
-			Account account,
-			TransactionType type,
-			BigDecimal amount,
-			String symbol,
-			BigDecimal quantity,
-			BigDecimal price
-	) {
+	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol, BigDecimal quantity,
+			BigDecimal price) {
 		this.account = account;
 		this.type = type;
 		this.amount = amount;
