@@ -368,6 +368,7 @@ public class AccountService {
 			BigDecimal totalQuantity = BigDecimal.ZERO;
 			BigDecimal totalCostBasis = BigDecimal.ZERO;
 
+
 			for (CostLot lot : lots) {
 
 				if (lot.quantity.compareTo(BigDecimal.ZERO) <= 0) {
@@ -390,9 +391,15 @@ public class AccountService {
 			BigDecimal gainLoss = marketValue.subtract(totalCostBasis, MathContext.DECIMAL128);
 
 			stockValue = stockValue.add(marketValue, MathContext.DECIMAL128);
+			BigDecimal gainLossPercentage = BigDecimal.ZERO;
 
+			if (totalCostBasis.compareTo(BigDecimal.ZERO) > 0) {
+				gainLossPercentage = gainLoss
+						.divide(totalCostBasis, MathContext.DECIMAL128)
+						.multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
+			}
 			holdings.add(new PortfolioResponse.Holding(symbol, totalQuantity, currentPrice, marketValue, averageCost,
-					gainLoss, BigDecimal.ZERO));
+					gainLoss,gainLossPercentage, BigDecimal.ZERO));
 		}
 
 		BigDecimal totalValue = account.getCash().add(stockValue, MathContext.DECIMAL128);
@@ -408,7 +415,8 @@ public class AccountService {
 			}
 
 			return new PortfolioResponse.Holding(holding.symbol(), holding.quantity(), holding.currentPrice(),
-					holding.marketValue(), holding.averageCost(), holding.gainLoss(), accountPercentage);
+					holding.marketValue(), holding.averageCost(), holding.gainLoss(),       holding.gainLossPercentage(),
+					 accountPercentage);
 		}).toList();
 
 		BigDecimal totalGainLoss = finalHoldings.stream().map(PortfolioResponse.Holding::gainLoss)

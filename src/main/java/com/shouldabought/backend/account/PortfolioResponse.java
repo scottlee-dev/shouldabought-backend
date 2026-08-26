@@ -18,6 +18,7 @@ public record PortfolioResponse(
             BigDecimal marketValue,
             BigDecimal averageCost,
             BigDecimal gainLoss,
+            BigDecimal gainLossPercentage,
             BigDecimal accountPercentage
     ) {
     }
