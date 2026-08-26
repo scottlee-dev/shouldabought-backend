@@ -1,127 +1,183 @@
 ### 1. Create Account
-# Initial Deposit: $25,000.00
+# Initial Cash: $20,000
 POST http://localhost:8080/api/accounts
 Content-Type: application/json
 
 {
-  "name": "Main Trading Account",
-  "initialCash": 25000.00
+  "name": "FIFO Multi-Lot Test",
+  "initialCash": 20000.00
 }
 
 
-### 2. Buy AAPL
-# 10 shares @ $150.00 = $1,500.00
-POST http://localhost:8080/api/accounts/1/buy
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 10
-}
-
-
-### 3. Buy AAPL Again
-# 10 shares @ $150.00 = $1,500.00
-POST http://localhost:8080/api/accounts/1/buy
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 10
-}
-
-
-### 4. Buy TSLA
-# 10 shares @ $200.00 = $2,000.00
-POST http://localhost:8080/api/accounts/1/buy
-Content-Type: application/json
-
-{
-  "symbol": "TSLA",
-  "quantity": 10
-}
-
-
-### 5. Get Account Positions
-# Expected: AAPL = 20 shares, TSLA = 10 shares
-GET http://localhost:8080/api/accounts/1/positions
-
-
-### 6. Set Market Price - AAPL
-# Current Market Price: $150.00
+### 2. Set AAPL Price = $100
 POST http://localhost:8080/api/market/prices
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "price": 150.00
+  "price": 100.00
 }
 
 
-### 7. Set Market Price - TSLA
-# Current Market Price: $200.00
-POST http://localhost:8080/api/market/prices
-Content-Type: application/json
-
-{
-  "symbol": "TSLA",
-  "price": 200.00
-}
-
-
-### 8. Get Account Balance
-# Expected:
-# Cash = $20,000.00
-# AAPL = 20 × $150 = $3,000.00
-# TSLA = 10 × $200 = $2,000.00
-# Total Balance = $25,000.00
-GET http://localhost:8080/api/accounts/1/balance
-
-
-### 9. Sell AAPL by Quantity
-# Sell 5 shares @ current market price ($150.00)
-POST http://localhost:8080/api/accounts/1/sell
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 5
-}
-
-
-### 10. Get Account Positions
-# Expected: AAPL = 15 shares, TSLA = 10 shares
-GET http://localhost:8080/api/accounts/1/positions
-
-
-### 11. Buy AAPL by Dollar Amount
-# Buy $1,000 worth of AAPL at the current market price
+### 3. Buy 10 AAPL @ $100
+# FIFO Lot 1
+# 10 shares
+# Cost = $1,000
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "cashAmount": 1000
+  "quantity": 10
 }
 
 
-### 12. Sell AAPL by Dollar Amount
-# Sell $1,000 worth of AAPL at the current market price
+### 4. Set AAPL Price = $120
+POST http://localhost:8080/api/market/prices
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "price": 120.00
+}
+
+
+### 5. Buy 20 AAPL @ $120
+# FIFO Lot 2
+# 20 shares
+# Cost = $2,400
+POST http://localhost:8080/api/accounts/1/buy
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "quantity": 20
+}
+
+
+### 6. Set AAPL Price = $140
+POST http://localhost:8080/api/market/prices
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "price": 140.00
+}
+
+
+### 7. Buy 30 AAPL @ $140
+# FIFO Lot 3
+# 30 shares
+# Cost = $4,200
+POST http://localhost:8080/api/accounts/1/buy
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "quantity": 30
+}
+
+
+### 8. Get Portfolio Before Sell
+# Expected:
+#
+# Total Quantity = 60
+#
+# Cost Basis:
+# 10 × $100 = $1,000
+# 20 × $120 = $2,400
+# 30 × $140 = $4,200
+#
+# Total Cost = $7,600
+#
+# Current Market Value:
+# 60 × $140 = $8,400
+#
+# Unrealized Gain = +$800
+GET http://localhost:8080/api/accounts/1/portfolio
+
+
+### 9. Sell 25 AAPL @ $140
+#
+# IMPORTANT FIFO TEST
+#
+# SELL 25 shares.
+#
+# FIFO must consume:
+#
+# Lot 1:
+# 10 @ $100 → completely consumed
+#
+# Lot 2:
+# 15 @ $120 → partially consumed
+#
+# Lot 2 remaining:
+# 5 @ $120
+#
+# Lot 3 remains:
+# 30 @ $140
+#
+# FIFO cost removed:
+#
+# 10 × $100 = $1,000
+# 15 × $120 = $1,800
+#
+# Total FIFO cost removed = $2,800
+#
+# Sale proceeds:
+# 25 × $140 = $3,500
+#
+# Realized Gain = +$700
 POST http://localhost:8080/api/accounts/1/sell
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "cashAmount": 1000
+  "quantity": 25
 }
 
 
-### 13. Get Portfolio
-# Expected:
-# Cash
-# AAPL quantity, current price, market value,
-# average cost, gain/loss, account percentage
-# TSLA quantity, current price, market value,
-# average cost, gain/loss, account percentage
-# Total account value and total gain/loss
+### 10. Get Portfolio After FIFO Sell
+#
+# Remaining:
+#
+# Lot 1:
+# completely sold
+#
+# Lot 2:
+# 5 @ $120
+#
+# Lot 3:
+# 30 @ $140
+#
+# Total Quantity = 35
+#
+# Current Market Value:
+# 35 × $140 = $4,900
+#
+# Remaining Cost Basis:
+# 5 × $120 = $600
+# 30 × $140 = $4,200
+#
+# Total Cost Basis = $4,800
+#
+# Unrealized Gain = +$100
+#
+# Realized Gain = +$700
+#
+# IMPORTANT:
+# totalGainLoss = +$100
+#
+# realizedGainLoss = +$700
+#
+# Cash:
+# $20,000
+# - $1,000
+# - $2,400
+# - $4,200
+# + $3,500
+# = $15,900
+#
+# Total Value:
+# $15,900 + $4,900 = $20,800
 GET http://localhost:8080/api/accounts/1/portfolio

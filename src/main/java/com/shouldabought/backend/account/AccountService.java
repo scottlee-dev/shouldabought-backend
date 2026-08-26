@@ -284,11 +284,10 @@ public class AccountService {
 
 		List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtAsc(accountId);
 
-		Map<String, BigDecimal> quantities = new HashMap<>();
-		Map<String, BigDecimal> costBasis = new HashMap<>();
+		Map<String, List<CostLot>> lotsBySymbol = new HashMap<>();
+
 		Map<String, BigDecimal> realizedGainLoss = new HashMap<>();
 
-		// Calculate current quantity and cost basis for each stock
 		for (Transaction transaction : transactions) {
 
 			if (transaction.getSymbol() == null) {
@@ -297,58 +296,67 @@ public class AccountService {
 
 			String symbol = transaction.getSymbol();
 
-			BigDecimal currentQuantity = quantities.getOrDefault(symbol, BigDecimal.ZERO);
-
-			BigDecimal currentCost = costBasis.getOrDefault(symbol, BigDecimal.ZERO);
+			List<CostLot> lots = lotsBySymbol.computeIfAbsent(symbol, key -> new ArrayList<>());
 
 			if (transaction.getType() == TransactionType.BUY) {
 
-				currentQuantity = currentQuantity.add(transaction.getQuantity(), MathContext.DECIMAL128);
-
-				currentCost = currentCost.add(transaction.getAmount(), MathContext.DECIMAL128);
+				lots.add(new CostLot(transaction.getQuantity(), transaction.getAmount()));
 
 			} else if (transaction.getType() == TransactionType.SELL) {
 
-				if (currentQuantity.compareTo(BigDecimal.ZERO) > 0) {
+				BigDecimal remainingToSell = transaction.getQuantity();
+				BigDecimal sellPrice = transaction.getPrice();
 
-					BigDecimal sellRatio = transaction.getQuantity().divide(currentQuantity, MathContext.DECIMAL128);
+				BigDecimal totalCostRemoved = BigDecimal.ZERO;
 
-					BigDecimal costToRemove = currentCost.multiply(sellRatio, MathContext.DECIMAL128);
+				while (remainingToSell.compareTo(BigDecimal.ZERO) > 0 && !lots.isEmpty()) {
 
-					BigDecimal sellGainLoss = transaction.getAmount().subtract(costToRemove);
+					CostLot oldestLot = lots.get(0);
 
-					BigDecimal currentRealizedGainLoss = realizedGainLoss.getOrDefault(symbol, BigDecimal.ZERO);
+					BigDecimal sharesFromLot = remainingToSell.min(oldestLot.quantity);
 
-					currentRealizedGainLoss = currentRealizedGainLoss.add(sellGainLoss);
+					BigDecimal costPerShare = oldestLot.cost.divide(oldestLot.quantity, MathContext.DECIMAL128);
 
-					realizedGainLoss.put(symbol, currentRealizedGainLoss);
+					BigDecimal costRemoved = sharesFromLot.multiply(costPerShare, MathContext.DECIMAL128);
 
-					currentQuantity = currentQuantity.subtract(transaction.getQuantity());
+					totalCostRemoved = totalCostRemoved.add(costRemoved, MathContext.DECIMAL128);
 
-					currentCost = currentCost.subtract(costToRemove);
+					oldestLot.quantity = oldestLot.quantity.subtract(sharesFromLot, MathContext.DECIMAL128);
 
-					if (currentQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-						currentQuantity = BigDecimal.ZERO;
-						currentCost = BigDecimal.ZERO;
+					oldestLot.cost = oldestLot.cost.subtract(costRemoved, MathContext.DECIMAL128);
+
+					remainingToSell = remainingToSell.subtract(sharesFromLot, MathContext.DECIMAL128);
+
+					if (oldestLot.quantity.compareTo(BigDecimal.ZERO) <= 0) {
+						lots.remove(0);
 					}
 				}
-			}
 
-			quantities.put(symbol, currentQuantity);
-			costBasis.put(symbol, currentCost);
+				if (remainingToSell.compareTo(BigDecimal.ZERO) > 0) {
+					throw new RuntimeException("Insufficient shares for FIFO calculation: " + symbol);
+				}
+
+				BigDecimal saleProceeds = transaction.getAmount();
+
+				BigDecimal sellGainLoss = saleProceeds.subtract(totalCostRemoved, MathContext.DECIMAL128);
+
+				BigDecimal currentRealizedGainLoss = realizedGainLoss.getOrDefault(symbol, BigDecimal.ZERO);
+
+				realizedGainLoss.put(symbol, currentRealizedGainLoss.add(sellGainLoss, MathContext.DECIMAL128));
+			}
 		}
 
-		// Build holdings
 		List<PortfolioResponse.Holding> holdings = new ArrayList<>();
 
 		BigDecimal stockValue = BigDecimal.ZERO;
 
-		for (Map.Entry<String, BigDecimal> entry : quantities.entrySet()) {
+		for (Map.Entry<String, List<CostLot>> entry : lotsBySymbol.entrySet()) {
 
 			String symbol = entry.getKey();
-			BigDecimal quantity = entry.getValue();
 
-			if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+			List<CostLot> lots = entry.getValue();
+
+			if (lots.isEmpty()) {
 				continue;
 			}
 
@@ -357,42 +365,71 @@ public class AccountService {
 
 			BigDecimal currentPrice = stockPrice.getPrice();
 
-			BigDecimal marketValue = quantity.multiply(currentPrice, MathContext.DECIMAL128);
+			BigDecimal totalQuantity = BigDecimal.ZERO;
+			BigDecimal totalCostBasis = BigDecimal.ZERO;
 
-			BigDecimal currentCostBasis = costBasis.get(symbol);
+			for (CostLot lot : lots) {
 
-			BigDecimal averageCost = currentCostBasis.divide(quantity, MathContext.DECIMAL128);
+				if (lot.quantity.compareTo(BigDecimal.ZERO) <= 0) {
+					continue;
+				}
 
-			BigDecimal gainLoss = marketValue.subtract(currentCostBasis, MathContext.DECIMAL128);
+				totalQuantity = totalQuantity.add(lot.quantity, MathContext.DECIMAL128);
+
+				totalCostBasis = totalCostBasis.add(lot.cost, MathContext.DECIMAL128);
+			}
+
+			if (totalQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+				continue;
+			}
+
+			BigDecimal marketValue = totalQuantity.multiply(currentPrice, MathContext.DECIMAL128);
+
+			BigDecimal averageCost = totalCostBasis.divide(totalQuantity, MathContext.DECIMAL128);
+
+			BigDecimal gainLoss = marketValue.subtract(totalCostBasis, MathContext.DECIMAL128);
 
 			stockValue = stockValue.add(marketValue, MathContext.DECIMAL128);
 
-			holdings.add(new PortfolioResponse.Holding(symbol, quantity, currentPrice, marketValue, averageCost,
+			holdings.add(new PortfolioResponse.Holding(symbol, totalQuantity, currentPrice, marketValue, averageCost,
 					gainLoss, BigDecimal.ZERO));
 		}
 
-		// Calculate total account value
 		BigDecimal totalValue = account.getCash().add(stockValue, MathContext.DECIMAL128);
 
-		// Calculate account percentage
 		List<PortfolioResponse.Holding> finalHoldings = holdings.stream().map(holding -> {
 
-			BigDecimal accountPercentage = holding.marketValue().divide(totalValue, MathContext.DECIMAL128)
-					.multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
+			BigDecimal accountPercentage = BigDecimal.ZERO;
+
+			if (totalValue.compareTo(BigDecimal.ZERO) > 0) {
+
+				accountPercentage = holding.marketValue().divide(totalValue, MathContext.DECIMAL128)
+						.multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
+			}
 
 			return new PortfolioResponse.Holding(holding.symbol(), holding.quantity(), holding.currentPrice(),
 					holding.marketValue(), holding.averageCost(), holding.gainLoss(), accountPercentage);
 		}).toList();
 
-		// Calculate total gain/loss
-		BigDecimal totalUnrealizedGainLoss = finalHoldings.stream().map(PortfolioResponse.Holding::gainLoss)
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal totalGainLoss = finalHoldings.stream().map(PortfolioResponse.Holding::gainLoss)
+				.reduce(BigDecimal.ZERO, (a, b) -> a.add(b, MathContext.DECIMAL128));
 
-		BigDecimal totalRealizedGainLoss = realizedGainLoss.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-
-		BigDecimal totalGainLoss = totalRealizedGainLoss.add(totalUnrealizedGainLoss);
+		BigDecimal totalRealizedGainLoss = realizedGainLoss.values().stream().reduce(BigDecimal.ZERO,
+				(a, b) -> a.add(b, MathContext.DECIMAL128));
 
 		return new PortfolioResponse(account.getCash(), totalValue, totalGainLoss, totalRealizedGainLoss,
 				finalHoldings);
 	}
+
+	private static class CostLot {
+
+		private BigDecimal quantity;
+		private BigDecimal cost;
+
+		public CostLot(BigDecimal quantity, BigDecimal cost) {
+			this.quantity = quantity;
+			this.cost = cost;
+		}
+	}
+
 }
