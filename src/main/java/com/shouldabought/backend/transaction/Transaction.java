@@ -35,29 +35,65 @@ public class Transaction {
 	@Column(precision = 19, scale = 8)
 	private BigDecimal price;
 
+
+	@Column(name = "dividend_external_id")
+	private String dividendExternalId;
+
 	@Column(nullable = false)
 	private LocalDateTime createdAt;
 
 	protected Transaction() {
 	}
 
-	// DEPOSIT / WITHDRAW / etc.
+	/*
+	 * DEPOSIT / WITHDRAW
+	 */
 	public Transaction(Account account, TransactionType type, BigDecimal amount) {
+
 		this.account = account;
 		this.type = type;
 		this.amount = amount;
 		this.createdAt = LocalDateTime.now();
 	}
 
-	// BUY / SELL
+	/*
+	 * BUY / SELL
+	 */
 	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol, BigDecimal quantity,
 			BigDecimal price) {
+
 		this.account = account;
 		this.type = type;
 		this.amount = amount;
 		this.symbol = symbol;
 		this.quantity = quantity;
 		this.price = price;
+		this.createdAt = LocalDateTime.now();
+	}
+
+	/*
+	 * DIVIDEND
+	 */
+	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol) {
+
+		this.account = account;
+		this.type = type;
+		this.amount = amount;
+		this.symbol = symbol;
+		this.createdAt = LocalDateTime.now();
+	}
+
+	/*
+	 * DIVIDEND with external dividend event ID.
+	 */
+	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol,
+			String dividendExternalId) {
+
+		this.account = account;
+		this.type = type;
+		this.amount = amount;
+		this.symbol = symbol;
+		this.dividendExternalId = dividendExternalId;
 		this.createdAt = LocalDateTime.now();
 	}
 
@@ -87,6 +123,10 @@ public class Transaction {
 
 	public BigDecimal getPrice() {
 		return price;
+	}
+
+	public String getDividendExternalId() {
+		return dividendExternalId;
 	}
 
 	public LocalDateTime getCreatedAt() {

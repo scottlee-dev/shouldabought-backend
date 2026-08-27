@@ -80,53 +80,16 @@ Content-Type: application/json
 
 ### 8. Get Portfolio Before Sell
 # Expected:
-#
 # Total Quantity = 60
-#
-# Cost Basis:
-# 10 × $100 = $1,000
-# 20 × $120 = $2,400
-# 30 × $140 = $4,200
-#
 # Total Cost = $7,600
-#
-# Current Market Value:
-# 60 × $140 = $8,400
-#
+# Current Market Value = $8,400
 # Unrealized Gain = +$800
 GET http://localhost:8080/api/accounts/1/portfolio
 
 
 ### 9. Sell 25 AAPL @ $140
-#
-# IMPORTANT FIFO TEST
-#
 # SELL 25 shares.
-#
-# FIFO must consume:
-#
-# Lot 1:
-# 10 @ $100 → completely consumed
-#
-# Lot 2:
-# 15 @ $120 → partially consumed
-#
-# Lot 2 remaining:
-# 5 @ $120
-#
-# Lot 3 remains:
-# 30 @ $140
-#
-# FIFO cost removed:
-#
-# 10 × $100 = $1,000
-# 15 × $120 = $1,800
-#
-# Total FIFO cost removed = $2,800
-#
-# Sale proceeds:
-# 25 × $140 = $3,500
-#
+# FIFO consumes Lot 1 (10 @ $100) and Lot 2 (15 @ $120).
 # Realized Gain = +$700
 POST http://localhost:8080/api/accounts/1/sell
 Content-Type: application/json
@@ -138,46 +101,79 @@ Content-Type: application/json
 
 
 ### 10. Get Portfolio After FIFO Sell
-#
-# Remaining:
-#
-# Lot 1:
-# completely sold
-#
-# Lot 2:
-# 5 @ $120
-#
-# Lot 3:
-# 30 @ $140
-#
-# Total Quantity = 35
-#
-# Current Market Value:
-# 35 × $140 = $4,900
-#
-# Remaining Cost Basis:
-# 5 × $120 = $600
-# 30 × $140 = $4,200
-#
-# Total Cost Basis = $4,800
-#
-# Unrealized Gain = +$100
-#
-# Realized Gain = +$700
-#
-# IMPORTANT:
-# totalGainLoss = +$100
-#
-# realizedGainLoss = +$700
-#
-# Cash:
-# $20,000
-# - $1,000
-# - $2,400
-# - $4,200
-# + $3,500
-# = $15,900
-#
-# Total Value:
-# $15,900 + $4,900 = $20,800
+# Remaining: 35 AAPL (Lot 2: 5 @ $120, Lot 3: 30 @ $140)
+# Current Market Value: 35 × $140 = $4,900
+# Cash: $15,900
+# Total Value: $20,800
+GET http://localhost:8080/api/accounts/1/portfolio
+
+
+### 11. Process Cash Dividend (reinvest = false)
+# Amount per share: $0.20
+# Total Cash Dividend: 35 × $0.20 = $7.00
+# EXPECTED RESULT: Cash = $15,907.00, Stock Quantity = 35 AAPL
+POST http://localhost:8080/api/accounts/1/dividends
+Content-Type: application/json
+
+{
+  "externalId": "AAPL-2026-Q3-DIV",
+  "symbol": "AAPL",
+  "amountPerShare": 0.20,
+  "declarationDate": "2026-08-01",
+  "exDividendDate": "2026-08-05",
+  "recordDate": "2026-08-06",
+  "payDate": "2026-08-15",
+  "reinvest": false
+}
+
+
+### 12. Duplicate Dividend Prevention Test
+# Trying to process the SAME externalId ("AAPL-2026-Q3-DIV") again.
+# EXPECTED RESULT: HTTP 500 / Exception ("Dividend already processed: AAPL-2026-Q3-DIV")
+POST http://localhost:8080/api/accounts/1/dividends
+Content-Type: application/json
+
+{
+  "externalId": "AAPL-2026-Q3-DIV",
+  "symbol": "AAPL",
+  "amountPerShare": 0.20,
+  "declarationDate": "2026-08-01",
+  "exDividendDate": "2026-08-05",
+  "recordDate": "2026-08-06",
+  "payDate": "2026-08-15",
+  "reinvest": false
+}
+
+
+### 13. Check Balance After Cash Dividend
+# EXPECTED: Cash Balance = $15,907.00
+GET http://localhost:8080/api/accounts/1/balance
+
+
+### 14. Refresh Live AAPL Price via Alpha Vantage API
+# Fetch and update live market price for AAPL prior to DRIP execution
+POST http://localhost:8080/api/market/prices/refresh/AAPL
+
+
+### 15. Process DRIP Dividend (reinvest = true)
+# CURRENT STATE BEFORE DRIP: Owned Shares = 35 AAPL, Cash = $15,907.00
+# Total Dividend Paid: 35 × $0.28 = $9.80
+# Reinvestment Shares = $9.80 / (Refreshed Live AAPL Price)
+POST http://localhost:8080/api/accounts/1/dividends
+Content-Type: application/json
+
+{
+  "externalId": "AAPL-2026-Q4-DIV",
+  "symbol": "AAPL",
+  "amountPerShare": 0.28,
+  "declarationDate": "2026-09-01",
+  "exDividendDate": "2026-09-05",
+  "recordDate": "2026-09-06",
+  "payDate": "2026-09-15",
+  "reinvest": true
+}
+
+
+### 16. Get Final Portfolio After Price Refresh & DRIP
+# Verify final share quantity, Cost Basis, Market Value, and Total Value based on live refreshed AAPL price
 GET http://localhost:8080/api/accounts/1/portfolio

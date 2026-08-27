@@ -119,6 +119,31 @@ public class AccountService {
 	}
 
 	@Transactional
+	public Transaction receiveDividend(Long accountId, String symbol, BigDecimal amount) {
+
+		Account account = accountRepository.findById(accountId)
+				.orElseThrow(() -> new RuntimeException("Account not found"));
+
+		if (symbol == null || symbol.isBlank()) {
+			throw new RuntimeException("Symbol is required");
+		}
+
+		if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+			throw new RuntimeException("Dividend amount must be greater than zero");
+		}
+
+		symbol = symbol.toUpperCase();
+
+		account.increaseCash(amount);
+
+		accountRepository.save(account);
+
+		Transaction transaction = new Transaction(account, TransactionType.DIVIDEND, amount, symbol, null, null);
+
+		return transactionRepository.save(transaction);
+	}
+
+	@Transactional
 	public Transaction buyStock(Long accountId, String symbol, BigDecimal quantity, BigDecimal cashAmount) {
 		Account account = accountRepository.findById(accountId)
 				.orElseThrow(() -> new RuntimeException("Account not found"));
@@ -368,7 +393,6 @@ public class AccountService {
 			BigDecimal totalQuantity = BigDecimal.ZERO;
 			BigDecimal totalCostBasis = BigDecimal.ZERO;
 
-
 			for (CostLot lot : lots) {
 
 				if (lot.quantity.compareTo(BigDecimal.ZERO) <= 0) {
@@ -394,12 +418,11 @@ public class AccountService {
 			BigDecimal gainLossPercentage = BigDecimal.ZERO;
 
 			if (totalCostBasis.compareTo(BigDecimal.ZERO) > 0) {
-				gainLossPercentage = gainLoss
-						.divide(totalCostBasis, MathContext.DECIMAL128)
+				gainLossPercentage = gainLoss.divide(totalCostBasis, MathContext.DECIMAL128)
 						.multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
 			}
 			holdings.add(new PortfolioResponse.Holding(symbol, totalQuantity, currentPrice, marketValue, averageCost,
-					gainLoss,gainLossPercentage, BigDecimal.ZERO));
+					gainLoss, gainLossPercentage, BigDecimal.ZERO));
 		}
 
 		BigDecimal totalValue = account.getCash().add(stockValue, MathContext.DECIMAL128);
@@ -415,8 +438,8 @@ public class AccountService {
 			}
 
 			return new PortfolioResponse.Holding(holding.symbol(), holding.quantity(), holding.currentPrice(),
-					holding.marketValue(), holding.averageCost(), holding.gainLoss(),       holding.gainLossPercentage(),
-					 accountPercentage);
+					holding.marketValue(), holding.averageCost(), holding.gainLoss(), holding.gainLossPercentage(),
+					accountPercentage);
 		}).toList();
 
 		BigDecimal totalGainLoss = finalHoldings.stream().map(PortfolioResponse.Holding::gainLoss)
