@@ -5,7 +5,17 @@ import java.time.LocalDateTime;
 
 import com.shouldabought.backend.account.Account;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "transactions")
@@ -35,8 +45,16 @@ public class Transaction {
 	@Column(precision = 19, scale = 8)
 	private BigDecimal price;
 
-
-	@Column(name = "dividend_external_id")
+	/*
+	 * Used to uniquely identify a dividend transaction.
+	 *
+	 * Example:
+	 * AAPL dividend + externalId from Alpha Vantage
+	 *
+	 * This prevents the same dividend from being processed twice
+	 * for the same account.
+	 */
+	@Column(length = 100)
 	private String dividendExternalId;
 
 	@Column(nullable = false)
@@ -46,9 +64,12 @@ public class Transaction {
 	}
 
 	/*
-	 * DEPOSIT / WITHDRAW
+	 * DEPOSIT / WITHDRAW / other cash transactions
 	 */
-	public Transaction(Account account, TransactionType type, BigDecimal amount) {
+	public Transaction(
+			Account account,
+			TransactionType type,
+			BigDecimal amount) {
 
 		this.account = account;
 		this.type = type;
@@ -57,9 +78,50 @@ public class Transaction {
 	}
 
 	/*
-	 * BUY / SELL
+	 * Manual / normal DIVIDEND transaction
 	 */
-	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol, BigDecimal quantity,
+	public Transaction(
+			Account account,
+			TransactionType type,
+			BigDecimal amount,
+			String symbol) {
+
+		this.account = account;
+		this.type = type;
+		this.amount = amount;
+		this.symbol = symbol;
+		this.createdAt = LocalDateTime.now();
+	}
+
+	/*
+	 * DIVIDEND transaction with external dividend ID.
+	 *
+	 * Used by DividendService.
+	 */
+	public Transaction(
+			Account account,
+			TransactionType type,
+			BigDecimal amount,
+			String symbol,
+			String dividendExternalId) {
+
+		this.account = account;
+		this.type = type;
+		this.amount = amount;
+		this.symbol = symbol;
+		this.dividendExternalId = dividendExternalId;
+		this.createdAt = LocalDateTime.now();
+	}
+
+	/*
+	 * BUY / SELL transaction
+	 */
+	public Transaction(
+			Account account,
+			TransactionType type,
+			BigDecimal amount,
+			String symbol,
+			BigDecimal quantity,
 			BigDecimal price) {
 
 		this.account = account;
@@ -68,32 +130,6 @@ public class Transaction {
 		this.symbol = symbol;
 		this.quantity = quantity;
 		this.price = price;
-		this.createdAt = LocalDateTime.now();
-	}
-
-	/*
-	 * DIVIDEND
-	 */
-	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol) {
-
-		this.account = account;
-		this.type = type;
-		this.amount = amount;
-		this.symbol = symbol;
-		this.createdAt = LocalDateTime.now();
-	}
-
-	/*
-	 * DIVIDEND with external dividend event ID.
-	 */
-	public Transaction(Account account, TransactionType type, BigDecimal amount, String symbol,
-			String dividendExternalId) {
-
-		this.account = account;
-		this.type = type;
-		this.amount = amount;
-		this.symbol = symbol;
-		this.dividendExternalId = dividendExternalId;
 		this.createdAt = LocalDateTime.now();
 	}
 

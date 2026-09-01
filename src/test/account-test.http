@@ -108,45 +108,32 @@ Content-Type: application/json
 GET http://localhost:8080/api/accounts/1/portfolio
 
 
-### 11. Process Cash Dividend (reinvest = false)
-# Amount per share: $0.20
-# Total Cash Dividend: 35 × $0.20 = $7.00
-# EXPECTED RESULT: Cash = $15,907.00, Stock Quantity = 35 AAPL
-POST http://localhost:8080/api/accounts/1/dividends
+### 11. Process Auto Cash Dividend (reinvest = false)
+# The backend will fetch the latest dividend data from Alpha Vantage automatically.
+# EXPECTED RESULT: Cash increases by (35 * fetched dividend per share), Stock Quantity = 35 AAPL
+POST http://localhost:8080/api/accounts/1/dividends/auto
 Content-Type: application/json
 
 {
-  "externalId": "AAPL-2026-Q3-DIV",
   "symbol": "AAPL",
-  "amountPerShare": 0.20,
-  "declarationDate": "2026-08-01",
-  "exDividendDate": "2026-08-05",
-  "recordDate": "2026-08-06",
-  "payDate": "2026-08-15",
   "reinvest": false
 }
 
 
 ### 12. Duplicate Dividend Prevention Test
-# Trying to process the SAME externalId ("AAPL-2026-Q3-DIV") again.
-# EXPECTED RESULT: HTTP 500 / Exception ("Dividend already processed: AAPL-2026-Q3-DIV")
-POST http://localhost:8080/api/accounts/1/dividends
+# Trying to process the exact same dividend fetched from Alpha Vantage again.
+# EXPECTED RESULT: HTTP 500 / Exception ("Dividend already processed")
+POST http://localhost:8080/api/accounts/1/dividends/auto
 Content-Type: application/json
 
 {
-  "externalId": "AAPL-2026-Q3-DIV",
   "symbol": "AAPL",
-  "amountPerShare": 0.20,
-  "declarationDate": "2026-08-01",
-  "exDividendDate": "2026-08-05",
-  "recordDate": "2026-08-06",
-  "payDate": "2026-08-15",
   "reinvest": false
 }
 
 
 ### 13. Check Balance After Cash Dividend
-# EXPECTED: Cash Balance = $15,907.00
+# EXPECTED: Cash Balance = $15,900.00 + (35 * fetched dividend amount)
 GET http://localhost:8080/api/accounts/1/balance
 
 
@@ -155,21 +142,15 @@ GET http://localhost:8080/api/accounts/1/balance
 POST http://localhost:8080/api/market/prices/refresh/AAPL
 
 
-### 15. Process DRIP Dividend (reinvest = true)
-# CURRENT STATE BEFORE DRIP: Owned Shares = 35 AAPL, Cash = $15,907.00
-# Total Dividend Paid: 35 × $0.28 = $9.80
-# Reinvestment Shares = $9.80 / (Refreshed Live AAPL Price)
-POST http://localhost:8080/api/accounts/1/dividends
+### 15. Process Auto DRIP Dividend (reinvest = true)
+# CURRENT STATE BEFORE DRIP: Owned Shares = 35 AAPL
+# The backend will fetch the NEXT/latest dividend data from Alpha Vantage automatically.
+# Reinvestment Shares = (35 * fetched dividend per share) / (Refreshed Live AAPL Price)
+POST http://localhost:8080/api/accounts/1/dividends/auto
 Content-Type: application/json
 
 {
-  "externalId": "AAPL-2026-Q4-DIV",
   "symbol": "AAPL",
-  "amountPerShare": 0.28,
-  "declarationDate": "2026-09-01",
-  "exDividendDate": "2026-09-05",
-  "recordDate": "2026-09-06",
-  "payDate": "2026-09-15",
   "reinvest": true
 }
 
@@ -177,3 +158,32 @@ Content-Type: application/json
 ### 16. Get Final Portfolio After Price Refresh & DRIP
 # Verify final share quantity, Cost Basis, Market Value, and Total Value based on live refreshed AAPL price
 GET http://localhost:8080/api/accounts/1/portfolio
+
+
+### 17. Insufficient Shares Error Test (Attempt to Sell Over Available Holdings)
+# Trying to sell 100 AAPL shares when only ~35+ shares are owned.
+# EXPECTED RESULT: HTTP 400 / 500 Exception ("Insufficient stock quantity to sell")
+POST http://localhost:8080/api/accounts/1/sell
+Content-Type: application/json
+
+{
+  "symbol": "AAPL",
+  "quantity": 100
+}
+
+
+### 18. Get Full Transaction History Ledger
+# Verify full audit trail: DEPOSIT -> BUY (x3) -> SELL -> DIVIDEND (Cash) -> DIVIDEND (DRIP) -> BUY (DRIP)
+GET http://localhost:8080/api/accounts/1/transactions
+
+
+### 19. Get Final Account Balance Breakdown
+# Verify total account value (Available Cash + Stock Market Value)
+GET http://localhost:8080/api/accounts/1/balance
+
+
+
+
+
+###
+GET http://localhost:8080/api/test/yahoo/dividend/AAPL

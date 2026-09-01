@@ -7,149 +7,74 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import com.shouldabought.backend.position.PositionResponse;
-import com.shouldabought.backend.transaction.DividendRequest;
-import com.shouldabought.backend.transaction.Transaction;
-import com.shouldabought.backend.transaction.TransactionBuyRequest;
-import com.shouldabought.backend.transaction.TransactionResponse;
-import com.shouldabought.backend.transaction.TransactionSellRequest;
+import com.shouldabought.backend.transaction.*;
 
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
-
 	private final AccountService accountService;
 	private final AccountRepository accountRepository;
 
-	public AccountController(
-			AccountService accountService,
-			AccountRepository accountRepository) {
-
+	public AccountController(AccountService accountService, AccountRepository accountRepository) {
 		this.accountService = accountService;
 		this.accountRepository = accountRepository;
 	}
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public Account createAccount(
-			@RequestBody CreateAccountRequest request) {
-
-		return accountService.createAccount(
-				request.name(),
-				request.initialCash()
-		);
+	public Account createAccount(@RequestBody CreateAccountRequest request) {
+		return accountService.createAccount(request.name(), request.initialCash());
 	}
 
 	@GetMapping("/{id}")
-	public Account getAccount(
-			@PathVariable Long id) {
-
-		return accountRepository.findById(id)
-				.orElseThrow(() ->
-						new RuntimeException("Account not found"));
+	public Account getAccount(@PathVariable Long id) {
+		return accountRepository.findById(id).orElseThrow(() -> new RuntimeException("Account not found"));
 	}
 
-	public record CreateAccountRequest(
-			String name,
-			BigDecimal initialCash
-	) {
+	public record CreateAccountRequest(String name, BigDecimal initialCash) {
 	}
 
 	@PostMapping("/{id}/buy")
-	public TransactionResponse buyStock(
-			@PathVariable Long id,
-			@RequestBody TransactionBuyRequest request) {
-
-		Transaction transaction =
-				accountService.buyStock(
-						id,
-						request.symbol(),
-						request.quantity(),
-						request.cashAmount()
-				);
-
-		return new TransactionResponse(
-				transaction.getId(),
-				transaction.getType(),
-				transaction.getAmount(),
-				transaction.getSymbol(),
-				transaction.getQuantity(),
-				transaction.getPrice(),
-				transaction.getCreatedAt()
-		);
+	public TransactionResponse buyStock(@PathVariable Long id, @RequestBody TransactionBuyRequest request) {
+		Transaction transaction = accountService.buyStock(id, request.symbol(), request.quantity(),
+				request.cashAmount());
+		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
+				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
 	}
 
 	@PostMapping("/{id}/sell")
-	public TransactionResponse sellStock(
-			@PathVariable Long id,
-			@RequestBody TransactionSellRequest request) {
-
-		Transaction transaction =
-				accountService.sellStock(
-						id,
-						request.symbol(),
-						request.quantity(),
-						request.cashAmount()
-				);
-
-		return new TransactionResponse(
-				transaction.getId(),
-				transaction.getType(),
-				transaction.getAmount(),
-				transaction.getSymbol(),
-				transaction.getQuantity(),
-				transaction.getPrice(),
-				transaction.getCreatedAt()
-		);
+	public TransactionResponse sellStock(@PathVariable Long id, @RequestBody TransactionSellRequest request) {
+		Transaction transaction = accountService.sellStock(id, request.symbol(), request.quantity(),
+				request.cashAmount());
+		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
+				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
 	}
 
 	@PostMapping("/{id}/dividend")
-	public TransactionResponse receiveDividend(
-			@PathVariable Long id,
-			@RequestBody DividendRequest request) {
-
-		Transaction transaction =
-				accountService.receiveDividend(
-						id,
-						request.symbol(),
-						request.amount()
-				);
-
-		return new TransactionResponse(
-				transaction.getId(),
-				transaction.getType(),
-				transaction.getAmount(),
-				transaction.getSymbol(),
-				transaction.getQuantity(),
-				transaction.getPrice(),
-				transaction.getCreatedAt()
-		);
+	public TransactionResponse processDividend(@PathVariable Long id, @RequestBody DividendRequest request) {
+		Transaction transaction = accountService.processDividend(id, request.symbol(), request.amount(),
+				request.reinvest());
+		return new TransactionResponse(transaction.getId(), transaction.getType(), transaction.getAmount(),
+				transaction.getSymbol(), transaction.getQuantity(), transaction.getPrice(), transaction.getCreatedAt());
 	}
 
 	@GetMapping("/{id}/transactions")
-	public List<TransactionResponse> getTransactions(
-			@PathVariable Long id) {
-
+	public List<TransactionResponse> getTransactions(@PathVariable Long id) {
 		return accountService.getTransactions(id);
 	}
 
 	@GetMapping("/{id}/positions")
-	public List<PositionResponse> getPositions(
-			@PathVariable Long id) {
-
+	public List<PositionResponse> getPositions(@PathVariable Long id) {
 		return accountService.getPositions(id);
 	}
 
 	@GetMapping("/{id}/balance")
-	public AccountBalanceResponse getBalance(
-			@PathVariable Long id) {
-
+	public AccountBalanceResponse getBalance(@PathVariable Long id) {
 		return accountService.getBalance(id);
 	}
 
 	@GetMapping("/{id}/portfolio")
-	public PortfolioResponse getPortfolio(
-			@PathVariable Long id) {
-
+	public PortfolioResponse getPortfolio(@PathVariable Long id) {
 		return accountService.getPortfolio(id);
 	}
 }

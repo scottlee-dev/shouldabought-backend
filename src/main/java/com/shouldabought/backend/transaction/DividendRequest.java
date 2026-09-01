@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public record DividendRequest(
         String symbol,
-        BigDecimal amount
+        BigDecimal amount,
+        boolean reinvest
 ) {
 }

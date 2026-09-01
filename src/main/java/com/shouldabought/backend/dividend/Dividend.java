@@ -1,4 +1,4 @@
-package com.shouldabought.backend.dividend;
+		package com.shouldabought.backend.dividend;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -6,21 +6,31 @@ import java.time.LocalDate;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "dividends", uniqueConstraints = {
-		@UniqueConstraint(name = "uk_dividend_external_id", columnNames = "external_id") })
+@Table(
+		name = "dividends",
+		uniqueConstraints = {
+				@UniqueConstraint(
+						name = "uk_dividend_external_id",
+						columnNames = "external_id"
+				)
+		}
+)
 public class Dividend {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-
-	@Column(name = "external_id", nullable = false, unique = true)
+	@Column(
+			name = "external_id",
+			nullable = false,
+			unique = true,
+			length = 100
+	)
 	private String externalId;
 
 	@Column(nullable = false, length = 10)
 	private String symbol;
-
 
 	@Column(nullable = false, precision = 19, scale = 8)
 	private BigDecimal amountPerShare;
@@ -40,8 +50,14 @@ public class Dividend {
 	protected Dividend() {
 	}
 
-	public Dividend(String externalId, String symbol, BigDecimal amountPerShare, LocalDate declarationDate,
-			LocalDate exDividendDate, LocalDate recordDate, LocalDate payDate) {
+	public Dividend(
+			String externalId,
+			String symbol,
+			BigDecimal amountPerShare,
+			LocalDate declarationDate,
+			LocalDate exDividendDate,
+			LocalDate recordDate,
+			LocalDate payDate) {
 
 		this.externalId = externalId;
 		this.symbol = symbol;
@@ -84,3 +100,4 @@ public class Dividend {
 		return payDate;
 	}
 }
+
