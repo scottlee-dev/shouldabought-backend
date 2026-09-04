@@ -1,11 +1,21 @@
+### ============================================
+### ACCOUNT / STOCK VALIDATION TEST
+### ============================================
+
+
+### 0. DB RESET
+# PostgreSQL에서 먼저 실행:
+#
+# TRUNCATE TABLE transactions, accounts, dividends RESTART IDENTITY CASCADE;
+
+
 ### 1. Create Account
-# Initial Cash: $20,000
 POST http://localhost:8080/api/accounts
 Content-Type: application/json
 
 {
-  "name": "FIFO Multi-Lot Test",
-  "initialCash": 20000.00
+  "name": "Test Account",
+  "initialCash": 20000
 }
 
 
@@ -15,174 +25,36 @@ Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "price": 100.00
+  "price": 100
 }
 
 
-### 3. Buy 10 AAPL @ $100
-# FIFO Lot 1
-# 10 shares
-# Cost = $1,000
+### 3. Buy 10 AAPL
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "quantity": 100
+  "quantity": 10
 }
 
 
-### 4. Set AAPL Price = $120
-POST http://localhost:8080/api/market/prices
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "price": 120.00
-}
-
-
-### 5. Buy 20 AAPL @ $120
-# FIFO Lot 2
-# 20 shares
-# Cost = $2,400
-POST http://localhost:8080/api/accounts/1/buy
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 20
-}
-
-
-### 6. Set AAPL Price = $140
-POST http://localhost:8080/api/market/prices
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "price": 140.00
-}
-
-
-### 7. Buy 30 AAPL @ $140
-# FIFO Lot 3
-# 30 shares
-# Cost = $4,200
-POST http://localhost:8080/api/accounts/1/buy
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 30
-}
-
-
-### 8. Get Portfolio Before Sell
-# Expected:
-# Total Quantity = 60
-# Total Cost = $7,600
-# Current Market Value = $8,400
-# Unrealized Gain = +$800
+### 4. Portfolio
 GET http://localhost:8080/api/accounts/1/portfolio
 
 
-### 9. Sell 25 AAPL @ $140
-# SELL 25 shares.
-# FIFO consumes Lot 1 (10 @ $100) and Lot 2 (15 @ $120).
-# Realized Gain = +$700
-POST http://localhost:8080/api/accounts/1/sell
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 25
-}
-
-
-### 10. Get Portfolio After FIFO Sell
-# Remaining: 35 AAPL (Lot 2: 5 @ $120, Lot 3: 30 @ $140)
-# Current Market Value: 35 × $140 = $4,900
-# Cash: $15,900
-# Total Value: $20,800
-GET http://localhost:8080/api/accounts/1/portfolio
-
-
-### 11. Process Auto Cash Dividend (reinvest = false)
-# The backend will fetch the latest dividend data from Alpha Vantage automatically.
-# EXPECTED RESULT: Cash increases by (35 * fetched dividend per share), Stock Quantity = 35 AAPL
-POST http://localhost:8080/api/accounts/1/dividends/auto
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "reinvest": false
-}
-
-### 12. Duplicate Dividend Prevention Test
-# Trying to process the exact same dividend fetched from Alpha Vantage again.
-# EXPECTED RESULT: HTTP 500 / Exception ("Dividend already processed")
-POST http://localhost:8080/api/accounts/1/dividends/auto
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "reinvest": false
-}
-
-
-### 13. Check Balance After Cash Dividend
-# EXPECTED: Cash Balance = $15,900.00 + (35 * fetched dividend amount)
+### 5. Balance
 GET http://localhost:8080/api/accounts/1/balance
 
 
-### 14. Refresh Live AAPL Price via Alpha Vantage API
-# Fetch and update live market price for AAPL prior to DRIP execution
-POST http://localhost:8080/api/market/prices/refresh/AAPL
-
-
-### 15. Process Auto DRIP Dividend (reinvest = true)
-# CURRENT STATE BEFORE DRIP: Owned Shares = 35 AAPL
-# The backend will fetch the NEXT/latest dividend data from Alpha Vantage automatically.
-# Reinvestment Shares = (35 * fetched dividend per share) / (Refreshed Live AAPL Price)
-POST http://localhost:8080/api/accounts/1/dividends/auto
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "reinvest": true
-}
-
-
-### 16. Get Final Portfolio After Price Refresh & DRIP
-# Verify final share quantity, Cost Basis, Market Value, and Total Value based on live refreshed AAPL price
-GET http://localhost:8080/api/accounts/1/portfolio
-
-
-### 17. Insufficient Shares Error Test (Attempt to Sell Over Available Holdings)
-# Trying to sell 100 AAPL shares when only ~35+ shares are owned.
-# EXPECTED RESULT: HTTP 400 / 500 Exception ("Insufficient stock quantity to sell")
-POST http://localhost:8080/api/accounts/1/sell
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "quantity": 100
-}
-
-
-### 18. Get Full Transaction History Ledger
-# Verify full audit trail: DEPOSIT -> BUY (x3) -> SELL -> DIVIDEND (Cash) -> DIVIDEND (DRIP) -> BUY (DRIP)
+### 6. Transactions
 GET http://localhost:8080/api/accounts/1/transactions
 
 
-### 19. Get Final Account Balance Breakdown
-# Verify total account value (Available Cash + Stock Market Value)
-GET http://localhost:8080/api/accounts/1/balance
+### 7. Positions
+GET http://localhost:8080/api/accounts/1/positions
 
 
 
-
-
-###
-GET http://localhost:8080/api/test/yahoo/dividend/AAPL
+### Sync AAPL Dividends
+POST http://localhost:8080/api/dividends/sync/AAPL

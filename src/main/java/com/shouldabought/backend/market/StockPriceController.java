@@ -26,8 +26,10 @@ public class StockPriceController {
 	@PostMapping("/prices")
 	public StockPrice updatePrice(@RequestBody StockPriceRequest request) {
 
-		StockPrice stockPrice = stockPriceRepository.findBySymbol(request.symbol())
-				.orElseGet(() -> new StockPrice(request.symbol(), request.price(), LocalDateTime.now()));
+		String symbol = request.symbol().toUpperCase();
+
+		StockPrice stockPrice = stockPriceRepository.findBySymbol(symbol)
+				.orElseGet(() -> new StockPrice(symbol, request.price(), LocalDateTime.now()));
 
 		stockPrice.updatePrice(request.price(), LocalDateTime.now());
 

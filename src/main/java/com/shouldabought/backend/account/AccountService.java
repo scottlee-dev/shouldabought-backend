@@ -10,7 +10,6 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.shouldabought.backend.market.AlphaVantageService;
 import com.shouldabought.backend.market.StockPrice;
 import com.shouldabought.backend.market.StockPriceRepository;
 import com.shouldabought.backend.position.PositionResponse;
@@ -25,15 +24,13 @@ public class AccountService {
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
 	private final StockPriceRepository stockPriceRepository;
-	private final AlphaVantageService alphaVantageService;
 
 	public AccountService(AccountRepository accountRepository, TransactionRepository transactionRepository,
-			StockPriceRepository stockPriceRepository, AlphaVantageService alphaVantageService) {
+			StockPriceRepository stockPriceRepository) {
 
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
 		this.stockPriceRepository = stockPriceRepository;
-		this.alphaVantageService = alphaVantageService;
 	}
 
 	@Transactional
@@ -118,31 +115,6 @@ public class AccountService {
 
 		Transaction transaction = new Transaction(account, TransactionType.SELL, totalProceeds, symbol, quantity,
 				price);
-
-		return transactionRepository.save(transaction);
-	}
-
-	@Transactional
-	public Transaction receiveDividend(Long accountId, String symbol, BigDecimal amount) {
-
-		Account account = accountRepository.findById(accountId)
-				.orElseThrow(() -> new RuntimeException("Account not found"));
-
-		if (symbol == null || symbol.isBlank()) {
-			throw new RuntimeException("Symbol is required");
-		}
-
-		if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new RuntimeException("Dividend amount must be greater than zero");
-		}
-
-		symbol = symbol.toUpperCase();
-
-		account.increaseCash(amount);
-
-		accountRepository.save(account);
-
-		Transaction transaction = new Transaction(account, TransactionType.DIVIDEND, amount, symbol, null, null);
 
 		return transactionRepository.save(transaction);
 	}
@@ -465,53 +437,5 @@ public class AccountService {
 			this.quantity = quantity;
 			this.cost = cost;
 		}
-	}
-
-	@Transactional
-	public Transaction processDividend(Long accountId, String symbol, BigDecimal dividendPerShare, boolean reinvest) {
-		Account account = accountRepository.findById(accountId)
-				.orElseThrow(() -> new RuntimeException("Account not found"));
-		if (symbol == null || symbol.isBlank()) {
-			throw new RuntimeException("Symbol is required");
-		}
-		if (dividendPerShare == null || dividendPerShare.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new RuntimeException("Dividend amount must be greater than zero");
-		}
-		/* * Find current holdings. */ List<Transaction> transactions = transactionRepository
-				.findByAccountIdOrderByCreatedAtAsc(accountId);
-		BigDecimal currentQuantity = BigDecimal.ZERO;
-		for (Transaction transaction : transactions) {
-			if (!symbol.equals(transaction.getSymbol())) {
-				continue;
-			}
-			if (transaction.getType() == TransactionType.BUY) {
-				currentQuantity = currentQuantity.add(transaction.getQuantity(), MathContext.DECIMAL128);
-			} else if (transaction.getType() == TransactionType.SELL) {
-				currentQuantity = currentQuantity.subtract(transaction.getQuantity(), MathContext.DECIMAL128);
-			}
-		}
-		if (currentQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new RuntimeException("No shares held for " + symbol);
-		}
-		/* * Calculate dividend. * * Example: * * 35.07 shares × $0.50 * = $17.535 */ BigDecimal dividendAmount = currentQuantity
-				.multiply(dividendPerShare, MathContext.DECIMAL128);
-		/* * Record the dividend. * * The dividend increases cash. */ account.increaseCash(dividendAmount);
-		accountRepository.save(account);
-		Transaction dividendTransaction = new Transaction(account, TransactionType.DIVIDEND, dividendAmount, symbol);
-		transactionRepository.save(dividendTransaction);
-		/*
-		 * * If automatic reinvestment is enabled, * immediately buy the same stock
-		 * using the dividend. * * buyStock() will: * * 1. decrease cash * 2. create a
-		 * BUY transaction * 3. add a new FIFO lot
-		 */ if (reinvest) {
-			StockPrice stockPrice = stockPriceRepository.findBySymbol(symbol)
-					.orElseThrow(() -> new RuntimeException("Price not found for " + symbol));
-			BigDecimal currentPrice = stockPrice.getPrice();
-			BigDecimal reinvestQuantity = dividendAmount.divide(currentPrice, MathContext.DECIMAL128);
-			if (reinvestQuantity.compareTo(BigDecimal.ZERO) > 0) {
-				buyStock(accountId, symbol, null, dividendAmount);
-			}
-		}
-		return dividendTransaction;
 	}
 }

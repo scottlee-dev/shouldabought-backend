@@ -1,171 +1,107 @@
 package com.shouldabought.backend.dividend;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.shouldabought.backend.account.Account;
-import com.shouldabought.backend.account.AccountRepository;
-import com.shouldabought.backend.market.StockPrice;
-import com.shouldabought.backend.market.StockPriceRepository;
-import com.shouldabought.backend.market.YahooFinanceService;
-import com.shouldabought.backend.transaction.Transaction;
-import com.shouldabought.backend.transaction.TransactionRepository;
-import com.shouldabought.backend.transaction.TransactionType;
+import com.shouldabought.backend.market.AlphaVantageDividendResponse;
+import com.shouldabought.backend.market.AlphaVantageService;
 
 @Service
 public class DividendService {
 
+	private final AlphaVantageService alphaVantageService;
 	private final DividendRepository dividendRepository;
-	private final AccountRepository accountRepository;
-	private final TransactionRepository transactionRepository;
-	private final StockPriceRepository stockPriceRepository;
-	private final YahooFinanceService yahooFinanceService;
 
-	public DividendService(DividendRepository dividendRepository, AccountRepository accountRepository,
-			TransactionRepository transactionRepository, StockPriceRepository stockPriceRepository,
-			YahooFinanceService yahooFinanceService) {
+	public DividendService(AlphaVantageService alphaVantageService, DividendRepository dividendRepository) {
 
+		this.alphaVantageService = alphaVantageService;
 		this.dividendRepository = dividendRepository;
-		this.accountRepository = accountRepository;
-		this.transactionRepository = transactionRepository;
-		this.stockPriceRepository = stockPriceRepository;
-		this.yahooFinanceService = yahooFinanceService;
 	}
 
 	@Transactional
-	public Dividend processAutomaticDividend(Long accountId, String symbol, boolean reinvest) {
+	public List<Dividend> syncDividends(String symbol) {
 
 		if (symbol == null || symbol.isBlank()) {
 			throw new RuntimeException("Symbol is required");
 		}
 
-		symbol = symbol.toUpperCase();
+		symbol = symbol.trim().toUpperCase();
 
-		/*
-		 * Get all dividend events from Yahoo Finance.
-		 */
-		List<YahooFinanceService.DividendData> dividendHistory = yahooFinanceService.getDividendHistory(symbol);
+		List<AlphaVantageDividendResponse.DividendData> dividendData = alphaVantageService.getDividendHistory(symbol);
 
-		/*
-		 * Find the newest dividend that has not already been processed for this
-		 * account.
-		 */
-		String finalSymbol = symbol;
-		YahooFinanceService.DividendData selectedDividend = dividendHistory.stream().filter(dividend -> {
+		List<Dividend> syncedDividends = new ArrayList<>();
 
-			String externalId = finalSymbol + "-" + dividend.date();
+		for (AlphaVantageDividendResponse.DividendData data : dividendData) {
 
-			return !transactionRepository.existsByAccountIdAndTypeAndSymbolAndDividendExternalId(accountId,
-					TransactionType.DIVIDEND, finalSymbol, externalId);
-		}).findFirst().orElseThrow(() -> new RuntimeException("No new dividend available for " + finalSymbol));
+			LocalDate exDividendDate = parseDate(data.exDividendDate());
 
-		BigDecimal amountPerShare = selectedDividend.amountPerShare();
+			BigDecimal amountPerShare = parseAmount(data.amount());
 
-		LocalDate exDividendDate = selectedDividend.date();
+			if (exDividendDate == null || amountPerShare == null || amountPerShare.compareTo(BigDecimal.ZERO) <= 0) {
 
-		String externalId = symbol + "-" + exDividendDate;
-
-		DividendProcessRequest request = new DividendProcessRequest(externalId, symbol, amountPerShare, null,
-				exDividendDate, null, null, reinvest);
-
-		return processDividend(accountId, request);
-	}
-
-	@Transactional
-	public Dividend processDividend(Long accountId, DividendProcessRequest request) {
-
-		if (transactionRepository.existsByAccountIdAndTypeAndSymbolAndDividendExternalId(accountId,
-				TransactionType.DIVIDEND, request.symbol(), request.externalId())) {
-
-			throw new RuntimeException("Dividend already processed: " + request.externalId());
-		}
-
-		Account account = accountRepository.findById(accountId)
-				.orElseThrow(() -> new RuntimeException("Account not found"));
-
-		Dividend dividend = dividendRepository.findByExternalId(request.externalId()).orElseGet(() -> {
-
-			Dividend newDividend = new Dividend(request.externalId(), request.symbol(), request.amountPerShare(),
-					request.declarationDate(), request.exDividendDate(), request.recordDate(), request.payDate());
-
-			return dividendRepository.save(newDividend);
-		});
-
-		/*
-		 * Calculate the current number of shares owned.
-		 */
-		List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtAsc(accountId);
-
-		BigDecimal currentQuantity = BigDecimal.ZERO;
-
-		for (Transaction transaction : transactions) {
-
-			if (!request.symbol().equals(transaction.getSymbol())) {
 				continue;
 			}
 
-			if (transaction.getType() == TransactionType.BUY) {
+			LocalDate declarationDate = parseDate(data.declarationDate());
 
-				currentQuantity = currentQuantity.add(transaction.getQuantity(), MathContext.DECIMAL128);
+			LocalDate recordDate = parseDate(data.recordDate());
 
-			} else if (transaction.getType() == TransactionType.SELL) {
+			LocalDate payDate = parseDate(data.paymentDate());
 
-				currentQuantity = currentQuantity.subtract(transaction.getQuantity(), MathContext.DECIMAL128);
-			}
+			String externalId = symbol + "-" + exDividendDate;
+
+			String finalSymbol = symbol;
+
+			Dividend dividend = dividendRepository.findByExternalId(externalId).map(existingDividend -> {
+
+				existingDividend.updateDetails(amountPerShare, declarationDate, exDividendDate, recordDate, payDate);
+
+				return existingDividend;
+			}).orElseGet(() -> new Dividend(externalId, finalSymbol, amountPerShare, declarationDate, exDividendDate,
+					recordDate, payDate));
+
+			syncedDividends.add(dividendRepository.save(dividend));
 		}
 
-		if (currentQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new RuntimeException("No shares owned for " + request.symbol());
+		syncedDividends.sort(Comparator.comparing(Dividend::getExDividendDate).reversed());
+
+		return syncedDividends;
+	}
+
+	private LocalDate parseDate(String value) {
+
+		if (value == null || value.isBlank() || "None".equalsIgnoreCase(value)) {
+
+			return null;
 		}
 
-		/*
-		 * Calculate dividend payment.
-		 *
-		 * Example: 30 shares × $0.27 = $8.10
-		 */
-		BigDecimal dividendAmount = currentQuantity.multiply(dividend.getAmountPerShare(), MathContext.DECIMAL128);
+		try {
+			return LocalDate.parse(value);
 
-		account.increaseCash(dividendAmount);
-		accountRepository.save(account);
+		} catch (DateTimeParseException exception) {
+			return null;
+		}
+	}
 
-		/*
-		 * Record the dividend transaction.
-		 */
-		Transaction dividendTransaction = new Transaction(account, TransactionType.DIVIDEND, dividendAmount,
-				dividend.getSymbol(), dividend.getExternalId());
+	private BigDecimal parseAmount(String value) {
 
-		transactionRepository.save(dividendTransaction);
+		if (value == null || value.isBlank() || "None".equalsIgnoreCase(value)) {
 
-		/*
-		 * Optional DRIP.
-		 */
-		if (request.reinvest()) {
-
-			StockPrice stockPrice = stockPriceRepository.findBySymbol(request.symbol())
-					.orElseThrow(() -> new RuntimeException("Price not found for " + request.symbol()));
-
-			BigDecimal currentPrice = stockPrice.getPrice();
-
-			if (currentPrice.compareTo(BigDecimal.ZERO) <= 0) {
-				throw new RuntimeException("Stock price must be greater than zero");
-			}
-
-			BigDecimal reinvestQuantity = dividendAmount.divide(currentPrice, MathContext.DECIMAL128);
-
-			account.decreaseCash(dividendAmount);
-			accountRepository.save(account);
-
-			Transaction reinvestTransaction = new Transaction(account, TransactionType.BUY, dividendAmount,
-					request.symbol(), reinvestQuantity, currentPrice);
-
-			transactionRepository.save(reinvestTransaction);
+			return null;
 		}
 
-		return dividend;
+		try {
+			return new BigDecimal(value);
+
+		} catch (NumberFormatException exception) {
+			return null;
+		}
 	}
 }

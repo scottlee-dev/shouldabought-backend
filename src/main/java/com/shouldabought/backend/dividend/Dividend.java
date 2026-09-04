@@ -3,21 +3,11 @@ package com.shouldabought.backend.dividend;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "dividends", uniqueConstraints = {
-		@UniqueConstraint(
-				name = "uk_dividend_external_id",
-				columnNames = "external_id"
-		)
-})
+		@UniqueConstraint(name = "uk_dividend_external_id", columnNames = "external_id") })
 public class Dividend {
 
 	@Id
@@ -42,27 +32,27 @@ public class Dividend {
 	@Column
 	private LocalDate recordDate;
 
-	/*
-	 * Yahoo Finance does not provide a payment date
-	 * in the dividend event data.
-	 */
 	@Column
 	private LocalDate payDate;
 
 	protected Dividend() {
 	}
 
-	public Dividend(
-			String externalId,
-			String symbol,
-			BigDecimal amountPerShare,
-			LocalDate declarationDate,
-			LocalDate exDividendDate,
-			LocalDate recordDate,
-			LocalDate payDate) {
+	public Dividend(String externalId, String symbol, BigDecimal amountPerShare, LocalDate declarationDate,
+			LocalDate exDividendDate, LocalDate recordDate, LocalDate payDate) {
 
 		this.externalId = externalId;
 		this.symbol = symbol;
+		this.amountPerShare = amountPerShare;
+		this.declarationDate = declarationDate;
+		this.exDividendDate = exDividendDate;
+		this.recordDate = recordDate;
+		this.payDate = payDate;
+	}
+
+	public void updateDetails(BigDecimal amountPerShare, LocalDate declarationDate, LocalDate exDividendDate,
+			LocalDate recordDate, LocalDate payDate) {
+
 		this.amountPerShare = amountPerShare;
 		this.declarationDate = declarationDate;
 		this.exDividendDate = exDividendDate;

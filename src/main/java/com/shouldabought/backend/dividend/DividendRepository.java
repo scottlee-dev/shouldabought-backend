@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DividendRepository extends JpaRepository<Dividend, Long> {
 
-    Optional<Dividend> findByExternalId(String externalId);
+	Optional<Dividend> findByExternalId(String externalId);
 }

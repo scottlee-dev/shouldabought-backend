@@ -6,28 +6,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record AlphaVantageDividendResponse(
 
-        @JsonProperty("data")
-        List<DividendData> data
+		@JsonProperty("data") List<DividendData> data
 
 ) {
 
-    public record DividendData(
+	public record DividendData(
 
-            @JsonProperty("ex_dividend_date")
-			String exDividendDate,
+			@JsonProperty("ex_dividend_date") String exDividendDate,
 
-            @JsonProperty("declaration_date")
-            String declarationDate,
+			@JsonProperty("declaration_date") String declarationDate,
 
-            @JsonProperty("record_date")
-            String recordDate,
+			@JsonProperty("record_date") String recordDate,
 
-            @JsonProperty("payment_date")
-            String paymentDate,
+			@JsonProperty("payment_date") String paymentDate,
 
-            @JsonProperty("amount")
-            String amount
+			@JsonProperty("amount") String amount
 
-    ) {
-    }
+	) {
+	}
 }
