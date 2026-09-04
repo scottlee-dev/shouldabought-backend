@@ -1,32 +1,30 @@
-		package com.shouldabought.backend.dividend;
+package com.shouldabought.backend.dividend;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(
-		name = "dividends",
-		uniqueConstraints = {
-				@UniqueConstraint(
-						name = "uk_dividend_external_id",
-						columnNames = "external_id"
-				)
-		}
-)
+@Table(name = "dividends", uniqueConstraints = {
+		@UniqueConstraint(
+				name = "uk_dividend_external_id",
+				columnNames = "external_id"
+		)
+})
 public class Dividend {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(
-			name = "external_id",
-			nullable = false,
-			unique = true,
-			length = 100
-	)
+	@Column(name = "external_id", nullable = false, unique = true)
 	private String externalId;
 
 	@Column(nullable = false, length = 10)
@@ -44,7 +42,11 @@ public class Dividend {
 	@Column
 	private LocalDate recordDate;
 
-	@Column(nullable = false)
+	/*
+	 * Yahoo Finance does not provide a payment date
+	 * in the dividend event data.
+	 */
+	@Column
 	private LocalDate payDate;
 
 	protected Dividend() {
@@ -100,4 +102,3 @@ public class Dividend {
 		return payDate;
 	}
 }
-

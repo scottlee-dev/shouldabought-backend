@@ -1,13 +1,13 @@
-	package com.shouldabought.backend.market;
+package com.shouldabought.backend.market;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
-import com.shouldabought.backend.market.YahooFinanceResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -30,15 +30,18 @@ public class YahooFinanceService {
 				.build();
 	}
 
-	public DividendData getLatestDividend(String symbol) {
+	public List<DividendData> getDividendHistory(String symbol) {
 
+		symbol = symbol.toUpperCase();
+
+		String finalSymbol = symbol;
 		YahooFinanceResponse response = restClient.get()
 				.uri(uriBuilder -> uriBuilder
 						.path("/v8/finance/chart/{symbol}")
 						.queryParam("interval", "1d")
 						.queryParam("range", "1y")
 						.queryParam("events", "div")
-						.build(symbol.toUpperCase()))
+						.build(finalSymbol))
 				.retrieve()
 				.body(YahooFinanceResponse.class);
 
@@ -67,33 +70,35 @@ public class YahooFinanceService {
 		Map<String, YahooFinanceResponse.DividendEvent> dividends =
 				result.events().dividends();
 
-		YahooFinanceResponse.DividendEvent latestDividend =
-				dividends.values()
-						.stream()
-						.max(Comparator.comparingLong(
-								YahooFinanceResponse.DividendEvent::date))
-						.orElseThrow(() ->
-								new RuntimeException(
-										"No valid dividend data returned for " + symbol
-								));
+		return dividends.values()
+				.stream()
+				.sorted(
+						Comparator.comparingLong(
+								YahooFinanceResponse.DividendEvent::date
+						).reversed()
+				)
+				.map(this::convertToDividendData)
+				.toList();
+	}
+
+	private DividendData convertToDividendData(
+			YahooFinanceResponse.DividendEvent dividendEvent) {
 
 		LocalDate dividendDate = Instant
-				.ofEpochSecond(latestDividend.date())
+				.ofEpochSecond(dividendEvent.date())
 				.atZone(ZoneId.of("America/New_York"))
 				.toLocalDate();
 
 		BigDecimal amountPerShare =
-				BigDecimal.valueOf(latestDividend.amount());
+				BigDecimal.valueOf(dividendEvent.amount());
 
 		return new DividendData(
-				symbol.toUpperCase(),
 				amountPerShare,
 				dividendDate
 		);
 	}
 
 	public record DividendData(
-			String symbol,
 			BigDecimal amountPerShare,
 			LocalDate date
 	) {

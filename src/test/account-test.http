@@ -28,7 +28,7 @@ Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "quantity": 10
+  "quantity": 100
 }
 
 
@@ -118,7 +118,6 @@ Content-Type: application/json
   "symbol": "AAPL",
   "reinvest": false
 }
-
 
 ### 12. Duplicate Dividend Prevention Test
 # Trying to process the exact same dividend fetched from Alpha Vantage again.

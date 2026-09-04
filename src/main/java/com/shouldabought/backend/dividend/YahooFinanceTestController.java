@@ -1,5 +1,6 @@
-
 package com.shouldabought.backend.dividend;
+
+import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,12 +16,13 @@ public class YahooFinanceTestController {
 	private final YahooFinanceService yahooFinanceService;
 
 	public YahooFinanceTestController(YahooFinanceService yahooFinanceService) {
+
 		this.yahooFinanceService = yahooFinanceService;
 	}
 
 	@GetMapping("/dividend/{symbol}")
-	public YahooFinanceService.DividendData getLatestDividend(@PathVariable String symbol) {
+	public List<YahooFinanceService.DividendData> getDividendHistory(@PathVariable String symbol) {
 
-		return yahooFinanceService.getLatestDividend(symbol);
+		return yahooFinanceService.getDividendHistory(symbol);
 	}
 }
