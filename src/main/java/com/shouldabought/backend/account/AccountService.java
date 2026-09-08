@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.shouldabought.backend.market.StockPrice;
 import com.shouldabought.backend.market.StockPriceRepository;
-import com.shouldabought.backend.position.PositionResponse;
 import com.shouldabought.backend.transaction.Transaction;
 import com.shouldabought.backend.transaction.TransactionRepository;
 import com.shouldabought.backend.transaction.TransactionResponse;
@@ -182,7 +181,7 @@ public class AccountService {
 				.toList();
 	}
 
-	public List<PositionResponse> getPositions(Long accountId) {
+	public List<PortfolioResponse.PositionResponse> getPositions(Long accountId) {
 
 		if (!accountRepository.existsById(accountId)) {
 			throw new RuntimeException("Account not found");
@@ -213,12 +212,12 @@ public class AccountService {
 			positions.put(symbol, currentQuantity);
 		}
 
-		List<PositionResponse> result = new ArrayList<>();
+		List<PortfolioResponse.PositionResponse> result = new ArrayList<>();
 
 		for (Map.Entry<String, BigDecimal> entry : positions.entrySet()) {
 
 			if (entry.getValue().compareTo(BigDecimal.ZERO) > 0) {
-				result.add(new PositionResponse(entry.getKey(), entry.getValue()));
+				result.add(new PortfolioResponse.PositionResponse(entry.getKey(), entry.getValue()));
 			}
 		}
 

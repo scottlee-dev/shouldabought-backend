@@ -58,3 +58,19 @@ GET http://localhost:8080/api/accounts/1/positions
 
 ### Sync AAPL Dividends
 POST http://localhost:8080/api/dividends/sync/AAPL
+
+
+###
+### 4. Process Dividend Entitlement
+POST http://localhost:8080/api/dividends/entitlements/process/2026-09-15
+
+
+### 9. Try Payment BEFORE Pay Date
+POST http://localhost:8080/api/dividends/payments/process/2026-09-17
+
+
+### 10. Process Dividend Payment
+POST http://localhost:8080/api/dividends/payments/process/2026-09-18
+
+### 13. Duplicate Payment Test
+POST http://localhost:8080/api/dividends/payments/process/2026-09-18

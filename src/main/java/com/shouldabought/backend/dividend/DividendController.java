@@ -1,5 +1,6 @@
 package com.shouldabought.backend.dividend;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,5 +23,17 @@ public class DividendController {
 	public List<Dividend> syncDividends(@PathVariable String symbol) {
 
 		return dividendService.syncDividends(symbol);
+	}
+
+	@PostMapping("/entitlements/process/{exDate}")
+	public List<DividendEntitlement> processEntitlements(@PathVariable LocalDate exDate) {
+
+		return dividendService.createEntitlementsForExDate(exDate);
+	}
+
+	@PostMapping("/payments/process/{processDate}")
+	public List<DividendEntitlement> processPayments(@PathVariable LocalDate processDate) {
+
+		return dividendService.processDividendPayments(processDate);
 	}
 }

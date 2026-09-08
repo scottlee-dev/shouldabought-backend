@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import com.shouldabought.backend.position.PositionResponse;
 import com.shouldabought.backend.transaction.Transaction;
 import com.shouldabought.backend.transaction.TransactionBuyRequest;
 import com.shouldabought.backend.transaction.TransactionResponse;
@@ -68,7 +67,7 @@ public class AccountController {
 	}
 
 	@GetMapping("/{id}/positions")
-	public List<PositionResponse> getPositions(@PathVariable Long id) {
+	public List<PortfolioResponse.PositionResponse> getPositions(@PathVariable Long id) {
 
 		return accountService.getPositions(id);
 	}

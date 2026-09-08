@@ -9,4 +9,11 @@ public record PortfolioResponse(BigDecimal cash, BigDecimal totalValue, BigDecim
 	public record Holding(String symbol, BigDecimal quantity, BigDecimal currentPrice, BigDecimal marketValue,
 			BigDecimal averageCost, BigDecimal gainLoss, BigDecimal gainLossPercentage, BigDecimal accountPercentage) {
 	}
+
+	public static record PositionResponse(
+			String symbol,
+			BigDecimal quantity
+	) {
+	}
+
 }
