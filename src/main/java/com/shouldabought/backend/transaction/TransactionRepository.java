@@ -12,6 +12,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 	List<Transaction> findByAccountIdAndSymbolAndCreatedAtBeforeOrderByCreatedAtAsc(Long accountId, String symbol,
 			LocalDateTime before);
 
+	List<Transaction> findByTypeIn(List<TransactionType> types);
+
 	boolean existsByAccountIdAndTypeAndSymbolAndDividendExternalId(Long accountId, TransactionType type, String symbol,
 			String dividendExternalId);
 }

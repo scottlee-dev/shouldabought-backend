@@ -1,14 +1,3 @@
-### ============================================
-### ACCOUNT / STOCK VALIDATION TEST
-### ============================================
-
-
-### 0. DB RESET
-# PostgreSQL에서 먼저 실행:
-#
-# TRUNCATE TABLE transactions, accounts, dividends RESTART IDENTITY CASCADE;
-
-
 ### 1. Create Account
 POST http://localhost:8080/api/accounts
 Content-Type: application/json
@@ -39,38 +28,9 @@ Content-Type: application/json
 }
 
 
-### 4. Portfolio
-GET http://localhost:8080/api/accounts/1/portfolio
+### 4. Check Currently Held Symbols
+GET http://localhost:8080/api/dividends/held-symbols
 
 
-### 5. Balance
-GET http://localhost:8080/api/accounts/1/balance
-
-
-### 6. Transactions
-GET http://localhost:8080/api/accounts/1/transactions
-
-
-### 7. Positions
-GET http://localhost:8080/api/accounts/1/positions
-
-
-
-### Sync AAPL Dividends
-POST http://localhost:8080/api/dividends/sync/AAPL
-
-
-###
-### 4. Process Dividend Entitlement
-POST http://localhost:8080/api/dividends/entitlements/process/2026-09-15
-
-
-### 9. Try Payment BEFORE Pay Date
-POST http://localhost:8080/api/dividends/payments/process/2026-09-17
-
-
-### 10. Process Dividend Payment
-POST http://localhost:8080/api/dividends/payments/process/2026-09-18
-
-### 13. Duplicate Payment Test
-POST http://localhost:8080/api/dividends/payments/process/2026-09-18
+### 5. Sync Dividends For Currently Held Symbols
+POST http://localhost:8080/api/dividends/sync-held

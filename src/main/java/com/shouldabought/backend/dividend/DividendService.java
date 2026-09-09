@@ -4,16 +4,16 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shouldabought.backend.account.Account;
 import com.shouldabought.backend.account.AccountRepository;
+import com.shouldabought.backend.account.AccountService;
 import com.shouldabought.backend.market.AlphaVantageDividendResponse;
 import com.shouldabought.backend.market.AlphaVantageService;
 import com.shouldabought.backend.transaction.Transaction;
@@ -22,22 +22,25 @@ import com.shouldabought.backend.transaction.TransactionType;
 
 @Service
 public class DividendService {
+	private static final ZoneId MARKET_ZONE = ZoneId.of("America/New_York");
 
 	private final AlphaVantageService alphaVantageService;
 	private final DividendRepository dividendRepository;
 	private final DividendEntitlementRepository entitlementRepository;
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
+	private final AccountService accountService;
 
 	public DividendService(AlphaVantageService alphaVantageService, DividendRepository dividendRepository,
 			DividendEntitlementRepository entitlementRepository, AccountRepository accountRepository,
-			TransactionRepository transactionRepository) {
+			TransactionRepository transactionRepository, AccountService accountService) {
 
 		this.alphaVantageService = alphaVantageService;
 		this.dividendRepository = dividendRepository;
 		this.entitlementRepository = entitlementRepository;
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
+		this.accountService = accountService;
 	}
 
 	/*
@@ -51,11 +54,14 @@ public class DividendService {
 			throw new RuntimeException("Symbol is required");
 		}
 
-		symbol = symbol.trim().toUpperCase();
+		String normalizedSymbol = symbol.trim().toUpperCase();
 
-		List<AlphaVantageDividendResponse.DividendData> dividendData = alphaVantageService.getDividendHistory(symbol);
+		List<AlphaVantageDividendResponse.DividendData> dividendData = alphaVantageService
+				.getDividendHistory(normalizedSymbol);
 
 		List<Dividend> syncedDividends = new ArrayList<>();
+
+		LocalDate today = LocalDate.now(MARKET_ZONE);
 
 		for (AlphaVantageDividendResponse.DividendData data : dividendData) {
 
@@ -64,7 +70,6 @@ public class DividendService {
 			BigDecimal amountPerShare = parseAmount(data.amount());
 
 			if (exDividendDate == null || amountPerShare == null || amountPerShare.compareTo(BigDecimal.ZERO) <= 0) {
-
 				continue;
 			}
 
@@ -74,17 +79,32 @@ public class DividendService {
 
 			LocalDate payDate = parseDate(data.paymentDate());
 
-			String externalId = symbol + "-" + exDividendDate;
+			/*
+			 * Keep only dividends that can still matter to the forward-looking simulator.
+			 *
+			 * Keep when: 1. ex-dividend date is today or in the future
+			 *
+			 * OR
+			 *
+			 * 2. ex-date already passed, but payment date is today or in the future.
+			 */
+			boolean upcomingExDate = !exDividendDate.isBefore(today);
 
-			String finalSymbol = symbol;
+			boolean pendingPayment = payDate != null && !payDate.isBefore(today);
+
+			if (!upcomingExDate && !pendingPayment) {
+				continue;
+			}
+
+			String externalId = normalizedSymbol + "-" + exDividendDate;
 
 			Dividend dividend = dividendRepository.findByExternalId(externalId).map(existingDividend -> {
 
 				existingDividend.updateDetails(amountPerShare, declarationDate, exDividendDate, recordDate, payDate);
 
 				return existingDividend;
-			}).orElseGet(() -> new Dividend(externalId, finalSymbol, amountPerShare, declarationDate, exDividendDate,
-					recordDate, payDate));
+			}).orElseGet(() -> new Dividend(externalId, normalizedSymbol, amountPerShare, declarationDate,
+					exDividendDate, recordDate, payDate));
 
 			syncedDividends.add(dividendRepository.save(dividend));
 		}
@@ -217,18 +237,12 @@ public class DividendService {
 
 			Dividend dividend = entitlement.getDividend();
 
-			/*
-			 * Dividend cannot be paid if Alpha Vantage does not provide a payment date.
-			 */
 			if (dividend.getPayDate() == null) {
 				continue;
 			}
 
 			/*
-			 * Process dividends whose payment date is today or earlier.
-			 *
-			 * Using "isAfter" rather than exact equality also allows missed payments to be
-			 * recovered if the application was not running on pay date.
+			 * Payment date has not arrived yet.
 			 */
 			if (dividend.getPayDate().isAfter(processDate)) {
 				continue;
@@ -237,19 +251,13 @@ public class DividendService {
 			Account account = entitlement.getAccount();
 
 			/*
-			 * Defensive duplicate check.
-			 *
-			 * Each account should receive each dividend event only once.
+			 * Defensive duplicate-payment check.
 			 */
 			boolean alreadyPaid = transactionRepository.existsByAccountIdAndTypeAndSymbolAndDividendExternalId(
 					account.getId(), TransactionType.DIVIDEND, dividend.getSymbol(), dividend.getExternalId());
 
 			if (alreadyPaid) {
 
-				/*
-				 * If a DIVIDEND transaction already exists, treat the entitlement as paid as
-				 * well.
-				 */
 				entitlement.markPaid();
 
 				paidEntitlements.add(entitlementRepository.save(entitlement));
@@ -260,22 +268,29 @@ public class DividendService {
 			BigDecimal dividendAmount = entitlement.getAmount();
 
 			/*
-			 * Add dividend cash to the account.
+			 * Step 1: Receive dividend cash.
 			 */
 			account.increaseCash(dividendAmount);
 
 			accountRepository.save(account);
 
 			/*
-			 * Record the dividend payment as a transaction.
+			 * Step 2: Record the dividend transaction.
 			 */
-			Transaction transaction = new Transaction(account, TransactionType.DIVIDEND, dividendAmount,
+			Transaction dividendTransaction = new Transaction(account, TransactionType.DIVIDEND, dividendAmount,
 					dividend.getSymbol(), dividend.getExternalId());
 
-			transactionRepository.save(transaction);
+			transactionRepository.save(dividendTransaction);
 
 			/*
-			 * Mark entitlement as completed.
+			 * Step 3: Immediately reinvest the entire dividend into the same stock.
+			 *
+			 * Fractional shares are supported by buyStock().
+			 */
+			accountService.buyStock(account.getId(), dividend.getSymbol(), null, dividendAmount);
+
+			/*
+			 * Step 4: Mark entitlement as completed.
 			 */
 			entitlement.markPaid();
 
@@ -283,5 +298,60 @@ public class DividendService {
 		}
 
 		return paidEntitlements;
+	}
+
+	public List<String> getCurrentlyHeldSymbols() {
+
+		List<Transaction> transactions = transactionRepository
+				.findByTypeIn(List.of(TransactionType.BUY, TransactionType.SELL));
+
+		Map<String, BigDecimal> quantitiesBySymbol = new HashMap<>();
+
+		for (Transaction transaction : transactions) {
+
+			if (transaction.getSymbol() == null || transaction.getQuantity() == null) {
+				continue;
+			}
+
+			String symbol = transaction.getSymbol().toUpperCase();
+
+			BigDecimal quantity = quantitiesBySymbol.getOrDefault(symbol, BigDecimal.ZERO);
+
+			if (transaction.getType() == TransactionType.BUY) {
+
+				quantity = quantity.add(transaction.getQuantity());
+
+			} else if (transaction.getType() == TransactionType.SELL) {
+
+				quantity = quantity.subtract(transaction.getQuantity());
+			}
+
+			quantitiesBySymbol.put(symbol, quantity);
+		}
+
+		return quantitiesBySymbol.entrySet().stream().filter(entry -> entry.getValue().compareTo(BigDecimal.ZERO) > 0)
+				.map(Map.Entry::getKey).sorted().toList();
+	}
+
+	@Transactional
+	public List<Dividend> syncDividendsForHeldSymbols() {
+
+		List<String> symbols = getCurrentlyHeldSymbols();
+
+		List<Dividend> syncedDividends = new ArrayList<>();
+
+		for (String symbol : symbols) {
+
+			try {
+
+				syncedDividends.addAll(syncDividends(symbol));
+
+			} catch (RuntimeException exception) {
+
+				System.out.println("Dividend sync failed for " + symbol + ": " + exception.getMessage());
+			}
+		}
+
+		return syncedDividends;
 	}
 }
