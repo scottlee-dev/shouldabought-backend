@@ -61,4 +61,9 @@ public class StockPriceController {
 
 	public record StockPriceRequest(String symbol, BigDecimal price) {
 	}
+
+	@GetMapping("/status")
+	public boolean getMarketStatus() {
+		return alphaVantageService.isUsEquityMarketOpen();
+	}
 }

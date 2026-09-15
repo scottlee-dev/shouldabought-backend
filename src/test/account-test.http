@@ -34,3 +34,10 @@ GET http://localhost:8080/api/dividends/held-symbols
 
 ### 5. Sync Dividends For Currently Held Symbols
 POST http://localhost:8080/api/dividends/sync-held
+
+### Morning Job - Market Closed Test
+POST http://localhost:8080/api/jobs/market/morning
+
+
+### Closing Job
+POST http://localhost:8080/api/jobs/market/closing

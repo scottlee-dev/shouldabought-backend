@@ -8,4 +8,9 @@ public record AlphaVantageResponse(@JsonProperty("Global Quote") GlobalQuote glo
 
 			@JsonProperty("05. price") String price) {
 	}
+
+	public static class MarketCalendarServiceTests {
+
+	}
+
 }

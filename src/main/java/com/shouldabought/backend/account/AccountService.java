@@ -437,4 +437,9 @@ public class AccountService {
 			this.cost = cost;
 		}
 	}
+
+	public Account getAccount(Long accountId) {
+
+		return accountRepository.findById(accountId).orElseThrow(() -> new RuntimeException("Account not found"));
+	}
 }

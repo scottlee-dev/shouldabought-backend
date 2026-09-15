@@ -1,0 +1,60 @@
+name: Market Morning Job
+
+on:
+  schedule:
+    - cron: '35 9 * * 1-5'
+      timezone: 'America/New_York'
+
+  workflow_dispatch:
+
+jobs:
+  market-morning:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Start Spring Boot
+        env:
+          SPRING_DATASOURCE_URL: ${{ secrets.DB_URL }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.DB_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+        run: |
+          ./mvnw spring-boot:run > app.log 2>&1 &
+          echo $! > app.pid
+
+      - name: Wait for application
+        run: |
+          for i in {1..30}; do
+            if curl --silent --fail http://localhost:8080/api/market/status > /dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo "Application failed to start"
+          cat app.log
+          exit 1
+
+      - name: Run morning market job
+        run: |
+          curl --fail \
+            --request POST \
+            http://localhost:8080/api/jobs/market/morning
+
+      - name: Show application log
+        if: always()
+        run: cat app.log

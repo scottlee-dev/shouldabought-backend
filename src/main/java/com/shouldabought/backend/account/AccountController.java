@@ -16,12 +16,9 @@ import com.shouldabought.backend.transaction.TransactionSellRequest;
 public class AccountController {
 
 	private final AccountService accountService;
-	private final AccountRepository accountRepository;
 
-	public AccountController(AccountService accountService, AccountRepository accountRepository) {
-
+	public AccountController(AccountService accountService) {
 		this.accountService = accountService;
-		this.accountRepository = accountRepository;
 	}
 
 	@PostMapping
@@ -34,7 +31,7 @@ public class AccountController {
 	@GetMapping("/{id}")
 	public Account getAccount(@PathVariable Long id) {
 
-		return accountRepository.findById(id).orElseThrow(() -> new RuntimeException("Account not found"));
+		return accountService.getAccount(id);
 	}
 
 	public record CreateAccountRequest(String name, BigDecimal initialCash) {

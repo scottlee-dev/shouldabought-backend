@@ -55,4 +55,21 @@ public class AlphaVantageService {
 
 		return response.data();
 	}
+
+	public boolean isUsEquityMarketOpen() {
+
+		AlphaVantageMarketStatusResponse response = restClient.get().uri(
+				uriBuilder -> uriBuilder.queryParam("function", "MARKET_STATUS").queryParam("apikey", apiKey).build())
+				.retrieve().body(AlphaVantageMarketStatusResponse.class);
+
+		if (response == null || response.markets() == null || response.markets().isEmpty()) {
+
+			throw new RuntimeException("No market status data returned");
+		}
+
+		return response.markets().stream().filter(market -> "Equity".equalsIgnoreCase(market.marketType()))
+				.filter(market -> "United States".equalsIgnoreCase(market.region())).findFirst()
+				.map(market -> "open".equalsIgnoreCase(market.currentStatus()))
+				.orElseThrow(() -> new RuntimeException("US equity market status not found"));
+	}
 }
