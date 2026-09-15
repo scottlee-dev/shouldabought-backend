@@ -37,7 +37,7 @@ jobs:
       - name: Wait for application
         run: |
           for i in {1..30}; do
-            if curl --silent --fail http://localhost:8080/api/market/status > /dev/null; then
+            if curl --silent --fail http://localhost:8080/api/health > /dev/null; then
               echo "Application is ready"
               exit 0
             fi
@@ -51,7 +51,8 @@ jobs:
 
       - name: Run morning market job
         run: |
-          curl --fail \
+          curl --fail-with-body \
+            --show-error \
             --request POST \
             http://localhost:8080/api/jobs/market/morning
 
