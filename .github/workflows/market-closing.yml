@@ -1,14 +1,14 @@
-name: Market Morning Job
+name: Market Closing Job
 
 on:
   schedule:
-    - cron: '35 9 * * 1-5'
+    - cron: '55 15 * * 1-5'
       timezone: 'America/New_York'
 
   workflow_dispatch:
 
 jobs:
-  market-morning:
+  market-closing:
     runs-on: ubuntu-latest
 
     steps:
@@ -49,12 +49,12 @@ jobs:
           cat app.log
           exit 1
 
-      - name: Run morning market job
+      - name: Run closing market job
         run: |
           curl --fail-with-body \
             --show-error \
             --request POST \
-            http://localhost:8080/api/jobs/market/morning
+            http://localhost:8080/api/jobs/market/closing
 
       - name: Show application log
         if: always()
