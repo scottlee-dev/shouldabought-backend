@@ -2,11 +2,13 @@ package com.shouldabought.backend.account;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.shouldabought.backend.market.AlphaVantageService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,14 +25,16 @@ public class AccountService {
 	private final AccountRepository accountRepository;
 	private final TransactionRepository transactionRepository;
 	private final StockPriceRepository stockPriceRepository;
+	private final AlphaVantageService alphaVantageService;
 
 	public AccountService(AccountRepository accountRepository, TransactionRepository transactionRepository,
-			StockPriceRepository stockPriceRepository) {
+                          StockPriceRepository stockPriceRepository, AlphaVantageService alphaVantageService) {
 
 		this.accountRepository = accountRepository;
 		this.transactionRepository = transactionRepository;
 		this.stockPriceRepository = stockPriceRepository;
-	}
+        this.alphaVantageService = alphaVantageService;
+    }
 
 	@Transactional
 	public Account createAccount(String name, BigDecimal initialCash) {
@@ -51,10 +55,13 @@ public class AccountService {
 		Account account = accountRepository.findById(accountId)
 				.orElseThrow(() -> new RuntimeException("Account not found"));
 
-		StockPrice stockPrice = stockPriceRepository.findBySymbol(symbol)
-				.orElseThrow(() -> new RuntimeException("Price not found for " + symbol));
+		symbol = symbol.trim().toUpperCase();
 
-		BigDecimal price = stockPrice.getPrice();
+		StockPrice stockPrice =
+				refreshStockPrice(symbol);
+
+		BigDecimal price =
+				stockPrice.getPrice();
 
 		// Must provide exactly one of quantity or cashAmount
 		if (quantity != null && cashAmount != null) {
@@ -123,10 +130,13 @@ public class AccountService {
 		Account account = accountRepository.findById(accountId)
 				.orElseThrow(() -> new RuntimeException("Account not found"));
 
-		StockPrice stockPrice = stockPriceRepository.findBySymbol(symbol)
-				.orElseThrow(() -> new RuntimeException("Price not found for " + symbol));
+		symbol = symbol.trim().toUpperCase();
 
-		BigDecimal price = stockPrice.getPrice();
+		StockPrice stockPrice =
+				refreshStockPrice(symbol);
+
+		BigDecimal price =
+				stockPrice.getPrice();
 
 		// Must provide exactly one of quantity or cashAmount
 		if (quantity != null && cashAmount != null) {
@@ -441,5 +451,31 @@ public class AccountService {
 	public Account getAccount(Long accountId) {
 
 		return accountRepository.findById(accountId).orElseThrow(() -> new RuntimeException("Account not found"));
+	}
+	private StockPrice refreshStockPrice(String symbol) {
+
+		String normalizedSymbol =
+				symbol.trim().toUpperCase();
+
+		BigDecimal price =
+				alphaVantageService.getCurrentPrice(normalizedSymbol);
+
+		LocalDateTime now =
+				LocalDateTime.now();
+
+		StockPrice stockPrice =
+				stockPriceRepository
+						.findBySymbol(normalizedSymbol)
+						.orElseGet(() ->
+								new StockPrice(
+										normalizedSymbol,
+										price,
+										now
+								)
+						);
+
+		stockPrice.updatePrice(price, now);
+
+		return stockPriceRepository.save(stockPrice);
 	}
 }
