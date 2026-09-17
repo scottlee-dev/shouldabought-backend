@@ -23,19 +23,25 @@ public class AlphaVantageService {
 
 	public BigDecimal getCurrentPrice(String symbol) {
 
+		if (symbol == null || symbol.isBlank()) {
+			throw new RuntimeException("Symbol is required");
+		}
+
+		String normalizedSymbol = symbol.trim().toUpperCase();
+
 		AlphaVantageResponse response = restClient.get()
 				.uri(uriBuilder -> uriBuilder.queryParam("function", "GLOBAL_QUOTE")
-						.queryParam("symbol", symbol.toUpperCase()).queryParam("apikey", apiKey).build())
+						.queryParam("symbol", normalizedSymbol).queryParam("apikey", apiKey).build())
 				.retrieve().body(AlphaVantageResponse.class);
 
 		if (response == null || response.globalQuote() == null) {
-			throw new RuntimeException("No market data returned for " + symbol);
+			throw new RuntimeException("No market data returned for " + normalizedSymbol);
 		}
 
 		String price = response.globalQuote().price();
 
 		if (price == null || price.isBlank()) {
-			throw new RuntimeException("No price returned for " + symbol);
+			throw new RuntimeException("No price returned for " + normalizedSymbol);
 		}
 
 		return new BigDecimal(price);
@@ -43,14 +49,19 @@ public class AlphaVantageService {
 
 	public List<AlphaVantageDividendResponse.DividendData> getDividendHistory(String symbol) {
 
-		AlphaVantageDividendResponse response = restClient.get()
-				.uri(uriBuilder -> uriBuilder.queryParam("function", "DIVIDENDS")
-						.queryParam("symbol", symbol.toUpperCase()).queryParam("apikey", apiKey).build())
+		if (symbol == null || symbol.isBlank()) {
+			throw new RuntimeException("Symbol is required");
+		}
+
+		String normalizedSymbol = symbol.trim().toUpperCase();
+
+		AlphaVantageDividendResponse response = restClient
+				.get().uri(uriBuilder -> uriBuilder.queryParam("function", "DIVIDENDS")
+						.queryParam("symbol", normalizedSymbol).queryParam("apikey", apiKey).build())
 				.retrieve().body(AlphaVantageDividendResponse.class);
 
 		if (response == null || response.data() == null || response.data().isEmpty()) {
-
-			throw new RuntimeException("No dividend data returned for " + symbol);
+			throw new RuntimeException("No dividend data returned for " + normalizedSymbol);
 		}
 
 		return response.data();

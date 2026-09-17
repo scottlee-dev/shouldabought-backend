@@ -13,7 +13,7 @@ public class StockPrice {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, length = 10)
+	@Column(nullable = false, unique = true, length = 10)
 	private String symbol;
 
 	@Column(nullable = false, precision = 19, scale = 6)

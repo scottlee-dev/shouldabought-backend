@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ public class MarketJobService {
 		this.dividendService = dividendService;
 	}
 
-	@Transactional
+
 	public MarketJobResult runMorningJob() {
 
 		LocalDate today = LocalDate.now(MARKET_ZONE);
@@ -50,14 +51,14 @@ public class MarketJobService {
 
 		dividendService.syncDividendsForHeldSymbols();
 
-		dividendService.createEntitlementsForExDate(today);
+		dividendService.createMissingEntitlementsThrough(today);
 
 		dividendService.processDividendPayments(today);
 
 		return new MarketJobResult("MORNING", today, true, heldSymbols.size());
 	}
 
-	@Transactional
+
 	public MarketJobResult runClosingJob() {
 
 		LocalDate today = LocalDate.now(MARKET_ZONE);
@@ -79,6 +80,8 @@ public class MarketJobService {
 
 	private void refreshPrices(List<String> symbols) {
 
+		List<String> failedSymbols = new ArrayList<>();
+
 		for (String symbol : symbols) {
 
 			try {
@@ -96,8 +99,15 @@ public class MarketJobService {
 
 			} catch (RuntimeException exception) {
 
+				failedSymbols.add(symbol);
+
 				System.out.println("Price refresh failed for " + symbol + ": " + exception.getMessage());
 			}
+		}
+
+		if (!failedSymbols.isEmpty()) {
+
+			throw new RuntimeException("Price refresh failed for: " + String.join(", ", failedSymbols));
 		}
 	}
 

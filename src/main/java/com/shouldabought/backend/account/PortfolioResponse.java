@@ -10,10 +10,7 @@ public record PortfolioResponse(BigDecimal cash, BigDecimal totalValue, BigDecim
 			BigDecimal averageCost, BigDecimal gainLoss, BigDecimal gainLossPercentage, BigDecimal accountPercentage) {
 	}
 
-	public static record PositionResponse(
-			String symbol,
-			BigDecimal quantity
-	) {
+	public record PositionResponse(String symbol, BigDecimal quantity) {
 	}
 
 }

@@ -1,7 +1,6 @@
 package com.shouldabought.backend.dividend;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -112,88 +111,6 @@ public class DividendService {
 		syncedDividends.sort(Comparator.comparing(Dividend::getExDividendDate).reversed());
 
 		return syncedDividends;
-	}
-
-	/*
-	 * Create dividend entitlements for all accounts for dividends whose ex-dividend
-	 * date matches the given date.
-	 */
-	@Transactional
-	public List<DividendEntitlement> createEntitlementsForExDate(LocalDate exDate) {
-
-		List<Dividend> dividends = dividendRepository.findByExDividendDate(exDate);
-
-		List<DividendEntitlement> createdEntitlements = new ArrayList<>();
-
-		for (Dividend dividend : dividends) {
-
-			List<Account> accounts = accountRepository.findAll();
-
-			for (Account account : accounts) {
-
-				/*
-				 * If an entitlement already exists for this account/dividend combination, do
-				 * nothing.
-				 */
-				boolean alreadyExists = entitlementRepository
-						.findByAccountIdAndDividendId(account.getId(), dividend.getId()).isPresent();
-
-				if (alreadyExists) {
-					continue;
-				}
-
-				BigDecimal qualifiedQuantity = calculateQualifiedQuantity(account.getId(), dividend.getSymbol(),
-						exDate);
-
-				/*
-				 * No shares held before the ex-date means there is no dividend entitlement.
-				 */
-				if (qualifiedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-					continue;
-				}
-
-				BigDecimal amount = qualifiedQuantity.multiply(dividend.getAmountPerShare()).setScale(4,
-						RoundingMode.HALF_UP);
-
-				DividendEntitlement entitlement = new DividendEntitlement(account, dividend, qualifiedQuantity, amount);
-
-				createdEntitlements.add(entitlementRepository.save(entitlement));
-			}
-		}
-
-		return createdEntitlements;
-	}
-
-	/*
-	 * Calculate how many shares the account owned immediately before the
-	 * ex-dividend date.
-	 */
-	private BigDecimal calculateQualifiedQuantity(Long accountId, String symbol, LocalDate exDate) {
-
-		LocalDateTime cutoff = exDate.atStartOfDay();
-
-		List<Transaction> transactions = transactionRepository
-				.findByAccountIdAndSymbolAndCreatedAtBeforeOrderByCreatedAtAsc(accountId, symbol, cutoff);
-
-		BigDecimal quantity = BigDecimal.ZERO;
-
-		for (Transaction transaction : transactions) {
-
-			if (transaction.getQuantity() == null) {
-				continue;
-			}
-
-			if (transaction.getType() == TransactionType.BUY) {
-
-				quantity = quantity.add(transaction.getQuantity());
-
-			} else if (transaction.getType() == TransactionType.SELL) {
-
-				quantity = quantity.subtract(transaction.getQuantity());
-			}
-		}
-
-		return quantity;
 	}
 
 	private LocalDate parseDate(String value) {
@@ -340,6 +257,8 @@ public class DividendService {
 
 		List<Dividend> syncedDividends = new ArrayList<>();
 
+		List<String> failedSymbols = new ArrayList<>();
+
 		for (String symbol : symbols) {
 
 			try {
@@ -348,10 +267,74 @@ public class DividendService {
 
 			} catch (RuntimeException exception) {
 
+				failedSymbols.add(symbol);
+
 				System.out.println("Dividend sync failed for " + symbol + ": " + exception.getMessage());
 			}
 		}
 
+		if (!failedSymbols.isEmpty()) {
+			throw new RuntimeException("Dividend sync failed for: " + String.join(", ", failedSymbols));
+		}
+
 		return syncedDividends;
+	}
+
+	@Transactional
+	public void createMissingEntitlementsThrough(LocalDate date) {
+
+		List<Dividend> dividends = dividendRepository.findByExDividendDateLessThanEqual(date);
+		List<Account> accounts = accountRepository.findAll();
+		for (Dividend dividend : dividends) {
+
+
+
+			for (Account account : accounts) {
+
+				boolean entitlementExists = entitlementRepository
+						.findByAccountIdAndDividendId(account.getId(), dividend.getId()).isPresent();
+
+				if (entitlementExists) {
+					continue;
+				}
+
+				BigDecimal qualifiedQuantity = calculateQualifiedQuantity(account.getId(), dividend.getSymbol(),
+						dividend.getExDividendDate());
+
+				if (qualifiedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+					continue;
+				}
+
+				BigDecimal amount = qualifiedQuantity.multiply(dividend.getAmountPerShare());
+
+				DividendEntitlement entitlement = new DividendEntitlement(account, dividend, qualifiedQuantity, amount);
+
+				entitlementRepository.save(entitlement);
+			}
+		}
+	}
+
+	private BigDecimal calculateQualifiedQuantity(Long accountId, String symbol, LocalDate exDividendDate) {
+
+		LocalDateTime cutoff = exDividendDate.atStartOfDay();
+
+		List<Transaction> transactions = transactionRepository
+				.findByAccountIdAndSymbolAndCreatedAtBeforeOrderByCreatedAtAsc(accountId, symbol, cutoff);
+
+		BigDecimal quantity = BigDecimal.ZERO;
+
+		for (Transaction transaction : transactions) {
+
+			if (transaction.getType() == TransactionType.BUY) {
+
+				quantity = quantity.add(transaction.getQuantity());
+
+			} else if (transaction.getType() == TransactionType.SELL) {
+
+				quantity = quantity.subtract(transaction.getQuantity());
+			}
+		}
+
+		return quantity;
 	}
 }

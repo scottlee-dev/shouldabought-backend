@@ -2,6 +2,7 @@ package com.shouldabought.backend.transaction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import com.shouldabought.backend.account.Account;
 
@@ -10,6 +11,7 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "transactions")
 public class Transaction {
+	private static final ZoneId MARKET_ZONE = ZoneId.of("America/New_York");
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,18 +37,6 @@ public class Transaction {
 	@Column(precision = 19, scale = 8)
 	private BigDecimal price;
 
-	/*
-	 * Identifies the dividend event associated with a DIVIDEND transaction.
-	 *
-	 * Example: AAPL-2026-08-10
-	 *
-	 * The ID is generated using:
-	 *
-	 * symbol + "-" + exDividendDate
-	 *
-	 * This prevents the same dividend from being processed more than once for the
-	 * same account.
-	 */
 	@Column(length = 100)
 	private String dividendExternalId;
 
@@ -67,7 +57,7 @@ public class Transaction {
 		this.account = account;
 		this.type = type;
 		this.amount = amount;
-		this.createdAt = LocalDateTime.now();
+		this.createdAt = LocalDateTime.now(MARKET_ZONE);
 	}
 
 	/*
@@ -81,7 +71,7 @@ public class Transaction {
 		this.amount = amount;
 		this.symbol = symbol;
 		this.dividendExternalId = dividendExternalId;
-		this.createdAt = LocalDateTime.now();
+		this.createdAt = LocalDateTime.now(MARKET_ZONE);
 	}
 
 	/*
@@ -96,7 +86,7 @@ public class Transaction {
 		this.symbol = symbol;
 		this.quantity = quantity;
 		this.price = price;
-		this.createdAt = LocalDateTime.now();
+		this.createdAt = LocalDateTime.now(MARKET_ZONE);
 	}
 
 	public Long getId() {

@@ -38,13 +38,11 @@ public class Account {
 	public String getName() {
 		return name;
 	}
-
-	public BigDecimal getCash() {
-		return cash;
-	}
-
 	public AccountType getType() {
 		return type;
+	}
+	public BigDecimal getCash() {
+		return cash;
 	}
 
 	public void decreaseCash(BigDecimal amount) {

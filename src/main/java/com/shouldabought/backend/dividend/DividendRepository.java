@@ -10,5 +10,5 @@ public interface DividendRepository extends JpaRepository<Dividend, Long> {
 
 	Optional<Dividend> findByExternalId(String externalId);
 
-	List<Dividend> findByExDividendDate(LocalDate exDividendDate);
+	List<Dividend> findByExDividendDateLessThanEqual(LocalDate exDividendDate);
 }

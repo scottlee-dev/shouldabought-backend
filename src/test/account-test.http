@@ -3,18 +3,6 @@
 ### ============================================
 
 
-### 0. DB RESET
-
-#
-# TRUNCATE TABLE
-#     dividend_entitlements,
-#     transactions,
-#     dividends,
-#     stock_prices,
-#     accounts
-# RESTART IDENTITY CASCADE;
-
-
 ### 1. Create Account
 POST http://localhost:8080/api/accounts
 Content-Type: application/json
@@ -25,63 +13,36 @@ Content-Type: application/json
 }
 
 
-### 2. Get Account
-GET http://localhost:8080/api/accounts/1
 
-
-### 3. Buy $1000 of AAPL
-# AAPL price is refreshed automatically from Alpha Vantage.
+### Buy 10 AAPL
 POST http://localhost:8080/api/accounts/1/buy
 Content-Type: application/json
 
 {
   "symbol": "AAPL",
-  "cashAmount": 1000
+  "quantity": 10
 }
 
-
-### 4. Get Transactions
+### 3. Sell $100 of AAPL
 GET http://localhost:8080/api/accounts/1/transactions
 
 
-### 5. Get Positions
-GET http://localhost:8080/api/accounts/1/positions
 
-
-### 6. Get Balance
-GET http://localhost:8080/api/accounts/1/balance
-
-
-### 7. Get Portfolio
-GET http://localhost:8080/api/accounts/1/portfolio
-
-
-### 8. Sell $100 of AAPL
-# AAPL price is refreshed again before selling.
-POST http://localhost:8080/api/accounts/1/sell
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "cashAmount": 100
-}
-
-
-### 9. Transactions After Sell
-GET http://localhost:8080/api/accounts/1/transactions
-
-
-### 10. Portfolio After Sell
-GET http://localhost:8080/api/accounts/1/portfolio
-
-
-### 11. Health Check
-GET http://localhost:8080/api/health
-
-
-### 12. Morning Market Job
+### Dividend / DRIP Final Test
 POST http://localhost:8080/api/jobs/market/morning
 
 
-### 13. Closing Market Job
-POST http://localhost:8080/api/jobs/market/closing
+### 1. Create Entitlements
+POST http://localhost:8080/api/test/dividends/entitlements
+
+
+### 2. Process Dividend Payments / DRIP
+POST http://localhost:8080/api/test/dividends/payments
+
+
+### 3. Check Transactions
+GET http://localhost:8080/api/accounts/1/transactions
+
+
+### 4. Check Portfolio
+GET http://localhost:8080/api/accounts/1/portfolio

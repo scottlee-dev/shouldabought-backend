@@ -2,6 +2,7 @@ package com.shouldabought.backend.dividend;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import com.shouldabought.backend.account.Account;
 
@@ -11,7 +12,7 @@ import jakarta.persistence.*;
 @Table(name = "dividend_entitlements", uniqueConstraints = {
 		@UniqueConstraint(name = "uk_entitlement_account_dividend", columnNames = { "account_id", "dividend_id" }) })
 public class DividendEntitlement {
-
+	private static final ZoneId MARKET_ZONE = ZoneId.of("America/New_York");
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -49,12 +50,12 @@ public class DividendEntitlement {
 		this.qualifiedQuantity = qualifiedQuantity;
 		this.amount = amount;
 		this.paid = false;
-		this.createdAt = LocalDateTime.now();
+		this.createdAt = LocalDateTime.now(MARKET_ZONE);
 	}
 
 	public void markPaid() {
 		this.paid = true;
-		this.paidAt = LocalDateTime.now();
+		this.paidAt = LocalDateTime.now(MARKET_ZONE);
 	}
 
 	public Long getId() {
