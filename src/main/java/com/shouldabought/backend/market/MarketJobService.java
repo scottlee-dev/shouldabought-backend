@@ -63,29 +63,32 @@ public class MarketJobService {
 
 		List<String> heldSymbols = dividendService.getCurrentlyHeldSymbols();
 
-		/*
-		 * Do not block this job using MARKET_STATUS.
-		 *
-		 * On an early-close day the market may already be closed at 3:55 PM, but
-		 * refreshing the quote still lets us store the latest available price.
-		 */
-		refreshPrices(heldSymbols);
 
+		refreshPrices(heldSymbols);
+		sleepForAlphaVantage();
 		dividendService.syncDividendsForHeldSymbols();
 
 		accountRepository.findAll().forEach(account -> portfolioSnapshotService.createSnapshot(account.getId()));
 
 		return new MarketJobResult("CLOSING", today, true, heldSymbols.size());
 	}
-
+	private void sleepForAlphaVantage() {
+		try {
+			Thread.sleep(1200);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new RuntimeException(
+					"Alpha Vantage request delay interrupted",
+					e
+			);
+		}
+	}
 	private void refreshPrices(List<String> symbols) {
 
 		List<String> failedSymbols = new ArrayList<>();
 
 		for (String symbol : symbols) {
-
 			try {
-
 				BigDecimal price = alphaVantageService.getCurrentPrice(symbol);
 
 				LocalDateTime now = LocalDateTime.now(MARKET_ZONE);
@@ -94,19 +97,24 @@ public class MarketJobService {
 						.orElseGet(() -> new StockPrice(symbol, price, now));
 
 				stockPrice.updatePrice(price, now);
-
 				stockPriceRepository.save(stockPrice);
 
-			} catch (RuntimeException exception) {
-
+			} catch (RuntimeException e) {
 				failedSymbols.add(symbol);
 
-				System.out.println("Price refresh failed for " + symbol + ": " + exception.getMessage());
+				System.out.println("Price refresh failed for " + symbol + ": " + e.getMessage());
+			}
+
+			try {
+				Thread.sleep(1200);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+
+				throw new RuntimeException("Price refresh interrupted", e);
 			}
 		}
 
 		if (!failedSymbols.isEmpty()) {
-
 			throw new RuntimeException("Price refresh failed for: " + String.join(", ", failedSymbols));
 		}
 	}

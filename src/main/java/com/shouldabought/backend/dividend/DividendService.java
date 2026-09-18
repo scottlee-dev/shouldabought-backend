@@ -260,16 +260,11 @@ public class DividendService {
 		List<String> failedSymbols = new ArrayList<>();
 
 		for (String symbol : symbols) {
-
 			try {
-
-				syncedDividends.addAll(syncDividends(symbol));
-
-			} catch (RuntimeException exception) {
-
-				failedSymbols.add(symbol);
-
-				System.out.println("Dividend sync failed for " + symbol + ": " + exception.getMessage());
+				Thread.sleep(1200);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("Dividend sync interrupted", e);
 			}
 		}
 
