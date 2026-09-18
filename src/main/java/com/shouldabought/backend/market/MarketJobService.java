@@ -35,51 +35,15 @@ public class MarketJobService {
 		this.accountRepository = accountRepository;
 	}
 
-//	public MarketJobResult runMorningJob() {
-//
-//		LocalDate today = LocalDate.now(MARKET_ZONE);
-//
-//		/*
-//		 * If the US equity market is closed, do nothing.
-//		 *
-//		 * This naturally handles weekends, market holidays, and unexpected closures
-//		 * without maintaining a hard-coded calendar.
-//		 */
-//		if (!alphaVantageService.isUsEquityMarketOpen()) {
-//
-//			return new MarketJobResult("MORNING", today, false, 0);
-//		}
-//
-//		List<String> heldSymbols = dividendService.getCurrentlyHeldSymbols();
-//
-//		refreshPrices(heldSymbols);
-//
-//		dividendService.syncDividendsForHeldSymbols();
-//
-//		dividendService.createMissingEntitlementsThrough(today);
-//
-//		dividendService.processDividendPayments(today);
-//
-//		return new MarketJobResult("MORNING", today, true, heldSymbols.size());
-//	}
-
 	public MarketJobResult runMorningJob() {
 		try {
 			LocalDate today = LocalDate.now(MARKET_ZONE);
 
 			if (!alphaVantageService.isUsEquityMarketOpen()) {
-				return new MarketJobResult(
-						"MORNING",
-						today,
-						false,
-						0
-				);
+				return new MarketJobResult("MORNING", today, false, 0);
 			}
 
-			List<String> heldSymbols =
-					dividendService.getCurrentlyHeldSymbols();
-
-			refreshPrices(heldSymbols);
+			List<String> heldSymbols = dividendService.getCurrentlyHeldSymbols();
 
 			dividendService.syncDividendsForHeldSymbols();
 
@@ -87,12 +51,7 @@ public class MarketJobService {
 
 			dividendService.processDividendPayments(today);
 
-			return new MarketJobResult(
-					"MORNING",
-					today,
-					true,
-					heldSymbols.size()
-			);
+			return new MarketJobResult("MORNING", today, true, heldSymbols.size());
 
 		} catch (Exception e) {
 			e.printStackTrace();
