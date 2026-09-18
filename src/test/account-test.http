@@ -46,3 +46,8 @@ GET http://localhost:8080/api/accounts/1/transactions
 
 ### 4. Check Portfolio
 GET http://localhost:8080/api/accounts/1/portfolio
+
+###
+POST http://localhost:8080/api/jobs/market/closing
+###
+GET http://localhost:8080/api/accounts/1/portfolio/history

@@ -38,9 +38,11 @@ public class Account {
 	public String getName() {
 		return name;
 	}
+
 	public AccountType getType() {
 		return type;
 	}
+
 	public BigDecimal getCash() {
 		return cash;
 	}
