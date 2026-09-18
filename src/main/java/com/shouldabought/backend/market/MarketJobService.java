@@ -45,8 +45,6 @@ public class MarketJobService {
 
 			List<String> heldSymbols = dividendService.getCurrentlyHeldSymbols();
 
-			dividendService.syncDividendsForHeldSymbols();
-
 			dividendService.createMissingEntitlementsThrough(today);
 
 			dividendService.processDividendPayments(today);
